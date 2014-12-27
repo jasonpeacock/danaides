@@ -1,6 +1,7 @@
-Base Station Coordinator
-========================
-* "B"
+# Base Station Coordinator
+
+Has "B" written on radio w/marker.
+
 * Product Family: XBP24BZ7
 * Function Set: ZigBee Coordinator API
 * ID: DECAF
@@ -12,9 +13,10 @@ Base Station Coordinator
 * VR: 21A7 (Firmware Version)
 * HV: 1E56 (Hardware Version)
 
-Remote Sensor End Unit
-======================
-* "R"
+# Remote Sensor End Unit
+
+Has "R" written on radio w/marker.
+
 * Product Family: XBP24BZ7
 * Function Set: ZigBee End Device API
 * ID: DECAF
@@ -27,9 +29,10 @@ Remote Sensor End Unit
 * HV: 1E46 (Hardware Version)
 * SM: 1 (Sleep Mode = Pin Hibernate)
 
-Pump Switch End Unit
-====================
-* "P"
+# Pump Switch End Unit
+
+Has "P" written on radio w/marker.
+
 * Product Family: XBP24BZ7
 * Function Set: ZigBee End Device API
 * ID: DECAF

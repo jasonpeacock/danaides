@@ -12,6 +12,8 @@
 #include <XBee.h>
 #include <SoftwareSerial.h>
 
+#include "Danaides.h"
+
 /*
  * Constants
  */
@@ -30,11 +32,11 @@ SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 XBee xbee = XBee();
 
 // Address of receiving (Base Station) radio
-XBeeAddress64 addr64 = XBeeAddress64(0x0013A200, 0x40C59926);
+XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, BASE_STATION_ADDRESS);
 
-uint8_t payload[] = {0, 1};
+uint8_t data[] = {0, 1};
 
-ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
+ZBTxRequest zbTx = ZBTxRequest(addr64, data, sizeof(data));
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
 void flashLed(int pin, int times, int wait) {
@@ -70,18 +72,18 @@ void loop() {
     Serial.println("About to send values...");
 
     // flip-flop the values for testing...
-    if (0 == payload[0]) {
-        payload[0] = 1;
-        payload[1] = 0;
+    if (0 == data[0]) {
+        data[0] = 1;
+        data[1] = 0;
     } else {
-        payload[0] = 0;
-        payload[1] = 1;
+        data[0] = 0;
+        data[1] = 1;
     }
 
     Serial.print("Sending values: ");
-    Serial.print(payload[0]);
+    Serial.print(data[0]);
     Serial.print(" ");
-    Serial.println(payload[1]);
+    Serial.println(data[1]);
 
     // send the data!
     xbee.send(zbTx);

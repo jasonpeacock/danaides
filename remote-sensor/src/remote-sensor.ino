@@ -15,6 +15,8 @@
 #include <XBee.h>
 #include <SoftwareSerial.h>
 
+#include "Danaides.h"
+
 /*
  * Pins
  */
@@ -43,23 +45,6 @@
 // Optional delay between shift register reads.
 #define POLL_DELAY_MSEC 1
 
-// this should match the size of the payload array
-#define TOTAL_SENSOR_COUNT 27
-#define TOTAL_SHIFT_INPUTS 32
-
-/*
- * XBee Constants
- */
-
-// how long to wait for a status response after sending a message
-#define STATUS_WAIT_MS 500
-
-// how long to wait to join the network during setup()
-#define XBEE_SETUP_DELAY_SECONDS 10
-
-// how long to wait after sending data before sleeping
-#define XBEE_TRANSMIT_DELAY_SECONDS 2
-
 /*
  * Remote Sensor Constants
  */
@@ -72,82 +57,6 @@
 // how often to transmit values, regardless of previous sensor values
 #define FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
 
-// Payload positions of sensor values
-
-// Tank 1 has *two* float switches at the top, with
-// one of them inverted for redundancy.
-#define TANK_1_FLOAT_0  0
-#define TANK_1_FLOAT_1  1
-#define TANK_1_FLOAT_2  2
-#define TANK_1_FLOAT_3  3
-#define TANK_1_FLOAT_4  4
-#define TANK_1_FLOAT_5  5
-#define TANK_1_FLOAT_6  6
-#define TANK_1_INVERTED_FLOAT TANK_1_FLOAT_0
- 
-#define TANK_2_FLOAT_1  7
-#define TANK_2_FLOAT_2  8
-#define TANK_2_FLOAT_3  9
-#define TANK_2_FLOAT_4 10
-#define TANK_2_FLOAT_5 11
-#define TANK_2_FLOAT_6 12
-
-#define TANK_3_FLOAT_1 13
-#define TANK_3_FLOAT_2 14
-#define TANK_3_FLOAT_3 15
-#define TANK_3_FLOAT_4 16
-#define TANK_3_FLOAT_5 17
-#define TANK_3_FLOAT_6 18
-
-#define VALVE_POSITION_1 19
-#define VALVE_POSITION_2 20
-#define VALVE_POSITION_3 21
-#define VALVE_POSITION_4 22
-#define VALVE_POSITION_5 23
-
-#define FLOW_OUT_BACK    24
-#define FLOW_OUT_FRONT   25
-#define FLOW_IN          26
-
-#define UNUSED_INPUT_1   27
-#define UNUSED_INPUT_2   28
-#define UNUSED_INPUT_3   29
-#define UNUSED_INPUT_4   30 
-#define UNUSED_INPUT_5   31 
-
-uint8_t payload[] = {0,  // TANK_1_FLOAT_0
-                     0,  // TANK_1_FLOAT_1
-                     0,  // TANK_1_FLOAT_2
-                     0,  // TANK_1_FLOAT_3
-                     0,  // TANK_1_FLOAT_4
-                     0,  // TANK_1_FLOAT_5
-                     0,  // TANK_1_FLOAT_6
-                     0,  // TANK_2_FLOAT_1
-                     0,  // TANK_2_FLOAT_2
-                     0,  // TANK_2_FLOAT_3
-                     0,  // TANK_2_FLOAT_4
-                     0,  // TANK_2_FLOAT_5
-                     0,  // TANK_2_FLOAT_6
-                     0,  // TANK_3_FLOAT_1
-                     0,  // TANK_3_FLOAT_2
-                     0,  // TANK_3_FLOAT_3
-                     0,  // TANK_3_FLOAT_4
-                     0,  // TANK_3_FLOAT_5
-                     0,  // TANK_3_FLOAT_6
-                     0,  // VALVE_POSITION_1
-                     0,  // VALVE_POSITION_2
-                     0,  // VALVE_POSITION_3
-                     0,  // VALVE_POSITION_4
-                     0,  // VALVE_POSITION_5
-                     0,  // FLOW_OUT_BACK
-                     0,  // FLOW_OUT_FRONT
-                     0,  // FLOW_IN
-                     0,  // UNUSED_INPUT_1
-                     0,  // UNUSED_INPUT_2
-                     0,  // UNUSED_INPUT_3
-                     0,  // UNUSED_INPUT_4
-                     0}; // UNUSED_INPUT_5
-
 /*
  * Setup the XBee radio w/SoftwareSerial
  */ 
@@ -155,8 +64,7 @@ uint8_t payload[] = {0,  // TANK_1_FLOAT_0
 XBee xbee = XBee();
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 
-// Address of receiving (BaseStation Coord) radio
-XBeeAddress64 addr64 = XBeeAddress64(0x0013A200, 0x40C59926);
+XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, BASE_STATION_ADDRESS);
 ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
 
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
@@ -190,7 +98,7 @@ void setupShiftInput() {
 void readShiftInputs() {
     payloadChanged = false;
 
-    long bitValue;
+    uint8_t bitValue;
 
     // trigger a parallel Load to latch the state of the data lines,
     digitalWrite(CE_PIN, HIGH);
@@ -200,8 +108,14 @@ void readShiftInputs() {
     digitalWrite(CE_PIN, LOW);
 
     // loop to read each bit value from the serial out line of the SN74HC165N.
-    for (int i = (TOTAL_SHIFT_INPUTS - 1); i >= 0; i--) {
+    for (int i = (TOTAL_SENSOR_INPUTS - 1); i >= 0; i--) {
         bitValue = digitalRead(Q7_PIN);
+
+        if (TANK_1_INVERTED_FLOAT == i) {
+            // invert the value so that ON/OFF
+            // makes sense.
+            bitValue = bitValue ? 0 : 1;
+        }
 
         if (bitValue != payload[i]) {
             Serial.print("Value changed!!! Sensor ");
@@ -225,7 +139,7 @@ void readShiftInputs() {
 void displayPayload() {
     Serial.print("Sensor States:\r\n");
 
-    for(int i = 0; i < TOTAL_SHIFT_INPUTS; i++)
+    for(int i = 0; i < TOTAL_SENSOR_INPUTS; i++)
     {
         Serial.print("  Sensor ");
         Serial.print(i);

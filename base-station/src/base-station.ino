@@ -8,6 +8,8 @@
 #include <XBee.h>
 #include <SoftwareSerial.h>
 
+#include "Danaides.h"
+
 /*
  * Constants
  */
@@ -25,15 +27,6 @@ XBeeResponse response = XBeeResponse();
 // create reusable response objects for responses we expect to handle
 ZBRxResponse rx = ZBRxResponse();
 ModemStatusResponse msr = ModemStatusResponse();
-
-// Address of receiving (Pump Switch) radio, 
-// (we never transmit to the Remote Sensor)
-XBeeAddress64 addr64 = XBeeAddress64(0x0013A200, 0x40C31683);
-
-uint8_t payload[] = {0, 1};
-
-ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
-ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
 void flashLed(int pin, int times, int wait) {
     for (int i = 0; i < times; i++) {
@@ -87,7 +80,7 @@ void loop() {
             Serial.print("Data length is ");
             Serial.println(rx.getDataLength(), DEC);
 
-            Serial.print("Received data: ");
+            Serial.println("Received data: ");
             for (int i = 0; i < rx.getDataLength(); i++) {
                 Serial.print(i);
                 Serial.print(": [");

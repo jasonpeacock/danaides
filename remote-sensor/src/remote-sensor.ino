@@ -2,7 +2,7 @@
  * Report the tank float switch, valve position,
  * and flow meter sensor values periodically.
  *
- * Aggressively sleep between reporting periods,
+ * Aggressively sleep between reporting periods
  * to conserve battery power, only transmitting
  * when values change from previous readings.
  *
@@ -178,8 +178,6 @@ void flashLed(int pin, int times, int wait) {
 }
 
 void setupShiftInput() {
-    Serial.println("Setting up shift input...");
-
     pinMode(PL_PIN, OUTPUT);
     pinMode(CE_PIN, OUTPUT);
     pinMode(CP_PIN, OUTPUT);
@@ -187,21 +185,12 @@ void setupShiftInput() {
 
     digitalWrite(CP_PIN, LOW);
     digitalWrite(PL_PIN, HIGH);
-
-    // get the initial values at startup
-    readShiftInputs();
-    displayPayload();
-
-    Serial.println("Completed shift input setup");
 }
 
 void readShiftInputs() {
-    Serial.println("Starting input read...");
-
     payloadChanged = false;
 
-    long bitVal;
-    unsigned long bytesVal = 0;
+    long bitValue;
 
     // trigger a parallel Load to latch the state of the data lines,
     digitalWrite(CE_PIN, HIGH);
@@ -210,82 +199,42 @@ void readShiftInputs() {
     digitalWrite(PL_PIN, HIGH);
     digitalWrite(CE_PIN, LOW);
 
-    Serial.println("Data loaded...");
-
     // loop to read each bit value from the serial out line of the SN74HC165N.
-    for (int i = 0; i < TOTAL_SHIFT_INPUTS; i++) {
-        Serial.print("Input #");
-        Serial.print(i);
-        Serial.print(": ");
+    for (int i = (TOTAL_SHIFT_INPUTS - 1); i >= 0; i--) {
+        bitValue = digitalRead(Q7_PIN);
 
-        bitVal = digitalRead(Q7_PIN);
+        if (bitValue != payload[i]) {
+            Serial.print("Value changed!!! Sensor ");
+            Serial.print(i);
+            Serial.print(":\t");
+            Serial.print(payload[i]);
+            Serial.print(" -> ");
+            Serial.println(bitValue);
 
-        Serial.print("bitVal: ");
-        Serial.print(bitVal);
-        Serial.print(" (bin: ");
-        Serial.print(bitVal, BIN);
-        Serial.print(") ");
-
-        bytesVal |= (bitVal << ((TOTAL_SHIFT_INPUTS - 1) - i));
-
-        Serial.print("bytesVal: ");
-        Serial.print(bytesVal);
-        Serial.print(" (bin: ");
-        Serial.print(bytesVal, BIN);
-        Serial.println(")");
+            payload[i] = bitValue;
+            payloadChanged = true;
+        }
 
         // pulse the Clock (rising edge shifts the next bit).
         digitalWrite(CP_PIN, HIGH);
         delayMicroseconds(PULSE_WIDTH_USEC);
         digitalWrite(CP_PIN, LOW);
     }
-
-    for (int i = 0; i < TOTAL_SHIFT_INPUTS; i++) {
-        uint8_t newValue;
-
-        Serial.print("Input #");
-        Serial.print(i);
-        Serial.print(": ");
-        if ((bytesVal >> i) & 1) {
-            newValue = 1;
-            Serial.println("HIGH");
-        } else {
-            newValue = 0;
-            Serial.println("LOW");
-        }
-
-        Serial.print("newValue: ");
-        Serial.println(newValue);
-
-        Serial.print("oldValue: ");
-        Serial.println(payload[i]);
-
-        if (newValue != payload[i]) {
-            payload[i] = newValue;
-            payloadChanged = true;
-            Serial.println("Value changed!!!");
-        }
-    }
-
-    Serial.println("Completed input read!");
 }
 
-/* 
- * Dump the list of zones along with their current status.
- */
 void displayPayload() {
-    Serial.print("Pin States:\r\n");
+    Serial.print("Sensor States:\r\n");
 
     for(int i = 0; i < TOTAL_SHIFT_INPUTS; i++)
     {
-        Serial.print("  Pin-");
+        Serial.print("  Sensor ");
         Serial.print(i);
         Serial.print(":\t");
 
         if(1 == payload[i]) {
-            Serial.print("HIGH");
+            Serial.print("** ON **");
         } else {
-            Serial.print("LOW");
+            Serial.print("OFF");
         }
 
         Serial.print("\r\n");
@@ -318,14 +267,16 @@ void setupXBee() {
 }
 
 void wakeXBee() {
-    digitalWrite(SLEEP_PIN, LOW);
+    //XXX fix the sleep
+    //digitalWrite(SLEEP_PIN, LOW);
     // wait for radio to be ready to receive input
     // XXX use CTS to detect when ready?
     delay(50);
 }
 
 void sleepXBee() {
-    digitalWrite(SLEEP_PIN, HIGH);
+    //XXX fix the sleep
+    //digitalWrite(SLEEP_PIN, HIGH);
     // XXX investigate using SLEEP_PIN as INPUT instead, less power?
     // http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
 }
@@ -404,8 +355,15 @@ void setup() {
     Serial.println("setup() start..");
 
     setupShiftInput();
-
     setupXBee();
+
+    // get the initial values at startup
+    readShiftInputs();
+    displayPayload();
+
+    // force initial transmitting of values
+    payloadChanged = true;
+    transmitPayload();
 
     Serial.println("setup() completed!");
 }

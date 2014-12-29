@@ -20,7 +20,7 @@
 
 /* How many shift register chips are daisy-chained.
 */
-#define NUMBER_OF_SHIFT_CHIPS 2
+#define NUMBER_OF_SHIFT_CHIPS 1
 
 /* Width of data (how many ext lines).
 */
@@ -34,10 +34,10 @@
 */
 #define POLL_DELAY_MSEC 1
 
-int clockEnablePin  = 2;  // Connects to Clock Enable pin the 165
-int ploadPin        = 3;  // Connects to Parallel load pin the 165
+int clockEnablePin  = 5;  // Connects to Clock Enable pin the 165
+int ploadPin        = 6;  // Connects to Parallel load pin the 165
 int clockPin        = 4; // Connects to the Clock pin the 165
-int dataPin         = 5; // Connects to the Q7 pin the 165
+int dataPin         = 8; // Connects to the Q7 pin the 165
 
 int count = 0;
 

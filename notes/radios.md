@@ -38,6 +38,7 @@ Has "P" written on radio w/marker.
 * ID: DECAF
 * SC: 7FFF
 * ZS: 0
+* JN: 1 (enabled)
 * NI: PumpSwitch EndUnit
 * SH: 13A200
 * SL: 40C31683

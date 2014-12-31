@@ -12,10 +12,13 @@
  * 
  */
 
-#include <XBee.h>
 #include <SoftwareSerial.h>
 
+#include "XBee.h"
+#include "Dbg.h"
+
 #include "Danaides.h"
+#include "InputShiftRegister.h"
 
 /*
  * Pins
@@ -36,16 +39,6 @@
 #define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
 
 /*
- * Shift Register Input Constants
- */
-
-// Width of pulse to trigger the shift register to read and latch.
-#define PULSE_WIDTH_USEC 5
-
-// Optional delay between shift register reads.
-#define POLL_DELAY_MSEC 1
-
-/*
  * Remote Sensor Constants
  */
 
@@ -57,21 +50,31 @@
 // how often to transmit values, regardless of previous sensor values
 #define FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
 
-/*
- * Setup the XBee radio w/SoftwareSerial
- */ 
+// enable debugging: 1 == ON, 0 == OFF
+#define DEBUG_ENABLED 1
 
+/*
+ * Setup the XBee radio
+ */ 
 XBee xbee = XBee();
-SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 
 XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, BASE_STATION_ADDRESS);
 ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
 
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
+// XBee will use SoftwareSerial for communications, reserver the HardwareSerial
+// for debugging w/FTDI interface.
+SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
+
+/*
+ * Setup the InputShiftRegister
+ */
+InputShiftRegister inputs(TOTAL_SENSOR_INPUTS, PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
+
 unsigned long lastTransmitTime = 0;
-boolean lastTransmitSuccess = false;
-boolean payloadChanged = true;
+bool lastTransmitSuccess = false;
+bool payloadChanged = false;
 
 void flashLed(int pin, int times, int wait) {
     for (int i = 0; i < times; i++) {
@@ -85,81 +88,22 @@ void flashLed(int pin, int times, int wait) {
     }
 }
 
-void setupShiftInput() {
-    pinMode(PL_PIN, OUTPUT);
-    pinMode(CE_PIN, OUTPUT);
-    pinMode(CP_PIN, OUTPUT);
-    pinMode(Q7_PIN, INPUT);
-
-    digitalWrite(CP_PIN, LOW);
-    digitalWrite(PL_PIN, HIGH);
-}
-
-void readShiftInputs() {
-    payloadChanged = false;
-
-    uint8_t bitValue;
-
-    // trigger a parallel Load to latch the state of the data lines,
-    digitalWrite(CE_PIN, HIGH);
-    digitalWrite(PL_PIN, LOW);
-    delayMicroseconds(PULSE_WIDTH_USEC);
-    digitalWrite(PL_PIN, HIGH);
-    digitalWrite(CE_PIN, LOW);
-
-    // loop to read each bit value from the serial out line of the SN74HC165N.
-    for (int i = (TOTAL_SENSOR_INPUTS - 1); i >= 0; i--) {
-        bitValue = digitalRead(Q7_PIN);
-
-        if (TANK_1_INVERTED_FLOAT == i) {
-            // invert the value so that ON/OFF
-            // makes sense.
-            bitValue = bitValue ? 0 : 1;
-        }
-
-        if (bitValue != payload[i]) {
-            Serial.print("Value changed!!! Sensor ");
-            Serial.print(i);
-            Serial.print(":\t");
-            Serial.print(payload[i]);
-            Serial.print(" -> ");
-            Serial.println(bitValue);
-
-            payload[i] = bitValue;
-            payloadChanged = true;
-        }
-
-        // pulse the Clock (rising edge shifts the next bit).
-        digitalWrite(CP_PIN, HIGH);
-        delayMicroseconds(PULSE_WIDTH_USEC);
-        digitalWrite(CP_PIN, LOW);
-    }
-}
-
 void displayPayload() {
-    Serial.print("Sensor States:\r\n");
+    dbg("Sensor States:");
 
     for(int i = 0; i < TOTAL_SENSOR_INPUTS; i++)
     {
-        Serial.print("  Sensor ");
-        Serial.print(i);
-        Serial.print(":\t");
-
         if(1 == payload[i]) {
-            Serial.print("** ON **");
+            dbg("\tSensor %d:\t***ON***", i);
         } else {
-            Serial.print("OFF");
+            dbg("\tSensor %d:\tOFF", i);
         }
-
-        Serial.print("\r\n");
     }
-
-    Serial.print("\r\n");
 }
 
 
 void setupXBee() {
-    Serial.println("Setting up XBee...");
+    dbg("Setting up XBee...");
 
     // XXX remove eventually, this consumes too much power
     // for battery use...
@@ -177,7 +121,7 @@ void setupXBee() {
 
     delay(XBEE_SETUP_DELAY_SECONDS * 1000);
 
-    Serial.println("Completed XBee setup");
+    dbg("Completed XBee setup");
 }
 
 void wakeXBee() {
@@ -196,6 +140,30 @@ void sleepXBee() {
 }
 
 /*
+ * Update the payload from the input shift register values
+ */
+void updatePayload() {
+    // assume it's unchanged since the last update
+    payloadChanged = false;
+
+    int* values = inputs.getValues();
+
+    for (int i = 0; i < inputs.getNumInputs(); i++) {
+        int value = values[i];
+
+        if (TANK_1_INVERTED_FLOAT == i) {
+            // invert the value so that its ON/OFF state is correct
+            value = value ? 0 : 1;
+        }
+
+        if (payload[i] != value) {
+            payloadChanged = true;
+            payload[i] = value;
+        }
+    }
+}
+
+/*
  * Check if the payload changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed,
  * and transmit the payload to the base station.
  */
@@ -205,41 +173,36 @@ void transmitPayload() {
 
         wakeXBee();
 
-        Serial.println("Sending data...");
+        dbg("Sending data...");
         // send the data! zbTx already has a reference to the payload
         xbee.send(zbTx);
 
         delay(XBEE_TRANSMIT_DELAY_SECONDS);
 
-        Serial.println("Data sent!");
+        dbg("Data sent!");
         flashLed(STATUS_LED_PIN, 1, 100);
 
         if (xbee.readPacket(STATUS_WAIT_MS)) {
-            Serial.print("RESPONSE_API_ID=");
-            Serial.print(xbee.getResponse().getApiId());
-            Serial.print(" i.e. ");
-
             if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
-                Serial.println("ZB_TX_STATUS_RESPONSE");
+                dbg("ZB_TX_STATUS_RESPONSE");
                 xbee.getResponse().getZBTxStatusResponse(txStatus);
 
                 if (SUCCESS == txStatus.getDeliveryStatus()) {
                     lastTransmitSuccess = true;
-                    Serial.println("Success!");
+                    dbg("Success!");
                     flashLed(STATUS_LED_PIN, 5, 50);
                 } else {
                     lastTransmitSuccess = false;
-                    Serial.println("Failure :(");
+                    dbg("Failure :(");
                     flashLed(ERROR_LED_PIN, 3, 500);
                 }
             }
         } else if (xbee.getResponse().isError()) {
             lastTransmitSuccess = false;
-            Serial.print("Error reading packet. Error code: ");
-            Serial.println(xbee.getResponse().getErrorCode());
+            dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
         } else {
             lastTransmitSuccess = false;
-            Serial.println("Local XBee didn't provide a timely TX status response (should not happen)");
+            dbg("Local XBee didn't provide a timely TX status response (should not happen)");
             flashLed(ERROR_LED_PIN, 2, 50);
         }
 
@@ -247,43 +210,38 @@ void transmitPayload() {
     }
 }
 
-void checkSensors() {
-    Serial.println("Checking values...");
-
-    readShiftInputs();
-
-    displayPayload();
-}
-
 void sleep() {
-    Serial.print("Waiting ");
-    Serial.print(CHECK_INTERVAL_SECONDS);
-    Serial.println("s before doing it all again...");
+    dbg("Waiting %ds before doing it all again...", CHECK_INTERVAL_SECONDS);
+
     // XXX go to sleep here to save battery power
     delay(CHECK_INTERVAL_SECONDS * 1000);
 }
 
 void setup() {
     // hardware serial is used for FTDI debugging
-    Serial.begin(9600);
-    Serial.println("setup() start..");
+    Debug.begin();
 
-    setupShiftInput();
+    dbg("setup() start..");
+
+    inputs.setup();
     setupXBee();
 
     // get the initial values at startup
-    readShiftInputs();
+    updatePayload();
     displayPayload();
 
     // force initial transmitting of values
     payloadChanged = true;
     transmitPayload();
 
-    Serial.println("setup() completed!");
+    dbg("setup() completed!");
 }
 
 void loop() {
-    checkSensors();
+
+    updatePayload();
+
+    displayPayload();
 
     transmitPayload();
 

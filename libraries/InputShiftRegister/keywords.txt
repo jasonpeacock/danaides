@@ -1,0 +1,5 @@
+InputShiftRegister KEYWORD1
+setup              KEYWORD2
+getValues          KEYWORD2
+getNumInputs       KEYWORD2
+

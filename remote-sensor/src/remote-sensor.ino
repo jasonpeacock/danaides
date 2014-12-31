@@ -31,12 +31,18 @@
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define Q7_PIN         8           // 74HC165N Serial Out
 #define UNUSED_PIN_9   9           // unused
-#define SLEEP_PIN     10           // XBee SP (DTR)
-#define SS_TX_PIN     11           // XBee RX
-#define SS_RX_PIN     12           // XBee TX
+#define UNUSED_PIN_10 10           // unused
+#define UNUSED_PIN_11 11           // unused
+#define UNUSED_PIN_12 12           // unused
 #define LED           13           // pin 13 == LED_BUILTIN
 #define STATUS_LED_PIN LED_BUILTIN // XBee Status LED
 #define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
+#define UNUSED_PIN_14 14           // unused (Analog 0)
+#define UNUSED_PIN_15 15           // unused (Analog 1)
+#define CTS_PIN       16           // XBee CTS (Analog 2)
+#define SLEEP_PIN     17           // XBee SP (DTR) (Analog 3)
+#define SS_TX_PIN     18           // XBee RX (Analog 4)
+#define SS_RX_PIN     19           // XBee TX (Analog 5)
 
 /*
  * Remote Sensor Constants
@@ -113,6 +119,8 @@ void setupXBee() {
     pinMode(SLEEP_PIN, OUTPUT);
     digitalWrite(SLEEP_PIN, LOW);
 
+    pinMode(CTS_PIN, INPUT);
+
     // software serial is used for XBee communications
     pinMode(SS_RX_PIN, INPUT);
     pinMode(SS_TX_PIN, OUTPUT);
@@ -130,9 +138,15 @@ void setupXBee() {
 void wakeXBee() {
     dbg("Waking XBee...");
     digitalWrite(SLEEP_PIN, LOW);
+
     // wait for radio to be ready to receive input
-    // XXX use CTS to detect when ready?
-    delay(XBEE_WAKE_DELAY_SECONDS * 1000);
+    // empirically, this usually takes 15-17ms
+    unsigned long start = millis();
+    while (LOW != digitalRead(CTS_PIN)) {
+        // delay until CTS_PIN goes low
+        delay(1);
+    }
+    dbg("XBee wake latency: %lums", millis() - start);
 }
 
 void sleepXBee() {
@@ -181,10 +195,6 @@ void transmitPayload() {
         // zbTx already has a reference to the payload
         xbee.send(zbTx);
 
-        // wait for the data to send...
-        // XXX use CTS/RTS instead
-        delay(XBEE_TRANSMIT_DELAY_SECONDS * 1000);
-
         dbg("Data sent!");
         flashLed(STATUS_LED_PIN, 1, 100);
 
@@ -212,6 +222,7 @@ void transmitPayload() {
             flashLed(ERROR_LED_PIN, 2, 50);
         }
 
+        // sleep once we get our successful ack response
         sleepXBee();
     }
 }

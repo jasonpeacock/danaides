@@ -44,7 +44,6 @@ Has "R" written on radio w/marker.
 * NI: RemoteSensor EndUnit
 * SH: 13A200
 * SL: 40C59899
-* D6: 1 (RTS Flow Control)
 * AP: 2
 * SM: 1 (Sleep Mode = Pin Hibernate)
 * D0: 0 (Disabled, was Commissioning)

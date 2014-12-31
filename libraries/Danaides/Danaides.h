@@ -20,6 +20,9 @@
 // how long to wait after sending data before sleeping
 #define XBEE_TRANSMIT_DELAY_SECONDS 2
 
+// how long to wait after waking
+#define XBEE_WAKE_DELAY_SECONDS 1
+
 /*
  * Payload positions of sensor values
  */

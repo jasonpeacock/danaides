@@ -121,20 +121,23 @@ void setupXBee() {
 
     delay(XBEE_SETUP_DELAY_SECONDS * 1000);
 
+    // now sleep it until we need it
+    sleepXBee();
+
     dbg("Completed XBee setup");
 }
 
 void wakeXBee() {
-    //XXX fix the sleep
-    //digitalWrite(SLEEP_PIN, LOW);
+    dbg("Waking XBee...");
+    digitalWrite(SLEEP_PIN, LOW);
     // wait for radio to be ready to receive input
     // XXX use CTS to detect when ready?
-    delay(50);
+    delay(XBEE_WAKE_DELAY_SECONDS * 1000);
 }
 
 void sleepXBee() {
-    //XXX fix the sleep
-    //digitalWrite(SLEEP_PIN, HIGH);
+    dbg("Sleeping XBee...");
+    digitalWrite(SLEEP_PIN, HIGH);
     // XXX investigate using SLEEP_PIN as INPUT instead, less power?
     // http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
 }
@@ -169,15 +172,18 @@ void updatePayload() {
  */
 void transmitPayload() {
     if (payloadChanged || (unsigned long)(millis() - lastTransmitTime) >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) {
-        lastTransmitTime = millis();
+        dbg("Sending data...");
 
+        lastTransmitTime = millis();
+        
         wakeXBee();
 
-        dbg("Sending data...");
-        // send the data! zbTx already has a reference to the payload
+        // zbTx already has a reference to the payload
         xbee.send(zbTx);
 
-        delay(XBEE_TRANSMIT_DELAY_SECONDS);
+        // wait for the data to send...
+        // XXX use CTS/RTS instead
+        delay(XBEE_TRANSMIT_DELAY_SECONDS * 1000);
 
         dbg("Data sent!");
         flashLed(STATUS_LED_PIN, 1, 100);

@@ -66,7 +66,8 @@ void NarcolepticClass::sleep(uint8_t wdt_period,uint8_t sleep_mode) {
   uint8_t EECRcopy = EECR; EECR &= ~_BV(EERIE);
 #endif
 #ifdef EIMSK
-  uint8_t EIMSKcopy = EIMSK; EIMSK = 0;
+// (jasonpeacock) don't disable external interrupts
+//  uint8_t EIMSKcopy = EIMSK; EIMSK = 0;
 #endif
 #ifdef PCMSK0
   uint8_t PCMSK0copy = PCMSK0; PCMSK0 = 0;
@@ -147,7 +148,8 @@ void NarcolepticClass::sleep(uint8_t wdt_period,uint8_t sleep_mode) {
   PCMSK0 = PCMSK0copy;
 #endif
 #ifdef EIMSK
-  EIMSK = EIMSKcopy;
+// (jasonpeacock) don't disable external interrupts
+//  EIMSK = EIMSKcopy;
 #endif
 #ifdef EECR
   EECR = EECRcopy;

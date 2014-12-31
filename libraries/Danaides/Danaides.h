@@ -6,22 +6,13 @@
 /*
  * XBee radio settings
  */
-#define XBEE_FAMILY_ADDRESS   0x0013A200
-#define BASE_STATION_ADDRESS  0x40C59926
-#define REMOTE_SENSOR_ADDRESS 0x40C59899
-#define PUMP_SWITCH_ADDRESS   0x40C31683
+#define XBEE_FAMILY_ADDRESS        0x0013A200
+#define XBEE_BASE_STATION_ADDRESS  0x40C59926
+#define XBEE_REMOTE_SENSOR_ADDRESS 0x40C59899
+#define XBEE_PUMP_SWITCH_ADDRESS   0x40C31683
 
 // how long to wait for a status response after sending a message
-#define STATUS_WAIT_MS 500
-
-// how long to wait to join the network during setup()
-#define XBEE_SETUP_DELAY_SECONDS 10
-
-// how long to wait after sending data before sleeping
-#define XBEE_TRANSMIT_DELAY_SECONDS 2
-
-// how long to wait after waking
-#define XBEE_WAKE_DELAY_SECONDS 1
+#define XBEE_STATUS_WAIT_MS 500
 
 /*
  * Payload positions of sensor values

@@ -16,6 +16,7 @@
 
 #include "XBee.h"
 #include "Dbg.h"
+#include "Narcoleptic.h"
 
 #include "Danaides.h"
 #include "InputShiftRegister.h"
@@ -45,16 +46,32 @@
 #define SS_RX_PIN     19           // XBee TX (Analog 5)
 
 /*
+ * Unused pins can drain power, set them to INPUT
+ * w/internal PULLUP enabled to prevent power drain.
+ */
+void setupUnusedPins() {
+    pinMode(UNUSED_PIN_3,  INPUT_PULLUP);
+
+    pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
+    pinMode(UNUSED_PIN_10, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_11, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_12, INPUT_PULLUP);
+
+    pinMode(UNUSED_PIN_14, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_15, INPUT_PULLUP);
+}
+
+/*
  * Remote Sensor Constants
  */
 
 // how often to check sensors
 // NOTE: if all sensor values match previous values
 //       then NO update will be transmitted.
-#define CHECK_INTERVAL_SECONDS 10UL
+#define CHECK_INTERVAL_SECONDS 10
 
 // how often to transmit values, regardless of previous sensor values
-#define FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
+#define FORCE_TRANSMIT_INTERVAL_SECONDS 30
 
 // enable debugging: 1 == ON, 0 == OFF
 #define DEBUG_ENABLED 1
@@ -78,8 +95,10 @@ SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
  */
 InputShiftRegister inputs(TOTAL_SENSOR_INPUTS, PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
 
+/*
+ * Setup Arduino sleep
+ */
 unsigned long lastTransmitTime = 0;
-bool lastTransmitSuccess = false;
 bool payloadChanged = false;
 
 void flashLed(int pin, int times, int wait) {
@@ -141,12 +160,12 @@ void wakeXBee() {
 
     // wait for radio to be ready to receive input
     // empirically, this usually takes 15-17ms
-    unsigned long start = millis();
+    unsigned long start = now();
     while (LOW != digitalRead(CTS_PIN)) {
         // delay until CTS_PIN goes low
         delay(1);
     }
-    dbg("XBee wake latency: %lums", millis() - start);
+    dbg("XBee wake latency: %lums", now() - start);
 }
 
 void sleepXBee() {
@@ -181,57 +200,68 @@ void updatePayload() {
 }
 
 /*
- * Check if the payload changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed,
- * and transmit the payload to the base station.
+ * Check if the payload changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
+ * since the last payload change, and transmit the payload to the base station.
  */
 void transmitPayload() {
-    if (payloadChanged || (unsigned long)(millis() - lastTransmitTime) >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) {
+    if (payloadChanged || (now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) ) {
         dbg("Sending data...");
-
-        lastTransmitTime = millis();
+        lastTransmitTime = now();
         
         wakeXBee();
 
         // zbTx already has a reference to the payload
         xbee.send(zbTx);
 
-        dbg("Data sent!");
+        dbg("Data sent...");
         flashLed(STATUS_LED_PIN, 1, 100);
 
         if (xbee.readPacket(STATUS_WAIT_MS)) {
             if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
-                dbg("ZB_TX_STATUS_RESPONSE");
                 xbee.getResponse().getZBTxStatusResponse(txStatus);
 
                 if (SUCCESS == txStatus.getDeliveryStatus()) {
-                    lastTransmitSuccess = true;
                     dbg("Success!");
                     flashLed(STATUS_LED_PIN, 5, 50);
                 } else {
-                    lastTransmitSuccess = false;
                     dbg("Failure :(");
                     flashLed(ERROR_LED_PIN, 3, 500);
                 }
             }
         } else if (xbee.getResponse().isError()) {
-            lastTransmitSuccess = false;
             dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
         } else {
-            lastTransmitSuccess = false;
             dbg("Local XBee didn't provide a timely TX status response (should not happen)");
             flashLed(ERROR_LED_PIN, 2, 50);
         }
 
+
         // sleep once we get our successful ack response
         sleepXBee();
+
+        dbg("Total transmit time: %lums", now() - lastTransmitTime);
     }
 }
 
-void sleep() {
-    dbg("Waiting %ds before doing it all again...", CHECK_INTERVAL_SECONDS);
+unsigned long now() {
+    // adjust for delays from sleeping
+    return millis() + Narcoleptic.millis();
+}
 
-    // XXX go to sleep here to save battery power
-    delay(CHECK_INTERVAL_SECONDS * 1000);
+void sleepArduino() {
+    // XXX allow serial buffer to flush before sleeping
+    dbg("Sleeping!");
+    delay(1 * 1000);
+
+    Narcoleptic.delay(CHECK_INTERVAL_SECONDS * 1000);
+
+    // continue from here after waking
+    dbg("Awake!");
+}
+
+void setupSleep() {
+    // never need this, leave it disabled all the time
+    Narcoleptic.disableADC();
 }
 
 void setup() {
@@ -240,7 +270,12 @@ void setup() {
 
     dbg("setup() start..");
 
+    setupUnusedPins();
+
+    setupSleep();
+
     inputs.setup();
+
     setupXBee();
 
     // get the initial values at startup
@@ -255,13 +290,12 @@ void setup() {
 }
 
 void loop() {
+    sleepArduino();
 
     updatePayload();
 
     displayPayload();
 
     transmitPayload();
-
-    sleep();
 }
 

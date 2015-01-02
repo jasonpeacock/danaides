@@ -76,4 +76,7 @@ uint8_t pumpValues[TOTAL_PUMP_VALUES];
 #define MAX_PUMP_ON_MINUTES  2
 #define MIN_PUMP_OFF_MINUTES 2
 
+#define PUMP_START_ATTEMPTS_WINDOW_SECONDS 60
+#define MIN_PUMP_START_ATTEMPTS 3
+
 #endif //Danaides_h

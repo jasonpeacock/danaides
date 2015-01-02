@@ -111,6 +111,8 @@ uint32_t lastTransmitTime = 0;
 uint32_t pumpStartTime    = 0;
 uint32_t pumpStopTime     = 0;
 uint32_t pumpCheckTime    = 0;
+uint32_t lastStartAttemptTime = 0;
+int startAttemptCount = 0;
 bool pumpValuesChanged = false;
 bool buttonLedEnabled  = false;
 bool pumpRunning       = false;
@@ -184,7 +186,7 @@ void buttonLedErrorFlash() {
 
 void buttonLedCheckFlash() {
     // flash to show error/refusal
-    flashLed(buttonLedEnabled, BUTTON_LED, 1, 500);
+    flashLed(buttonLedEnabled, BUTTON_LED, 1, 250);
 }
 
 /*
@@ -219,22 +221,33 @@ void startPump() {
     if (pumpRunning) {
         dbg("Pump is already running for %lumin", msToMinutes(millis() - pumpStartTime));
         // don't do anything if the pump is already running
-        // XXX report back the time it has been running to base station?
+        // TODO report back the time it has been running to base station?
         return;
     }
 
-    //XXX provide "reset timers" switch to allow running pump more frequently?
-    // or let base station do this w/overrides?
-    // or just power-cycle?
-
     // don't start the pump if it hasn't rested long enough
-    //XXX make this configurable with switches on base station, allow base station
+    // TODO make this configurable with switches on base station, allow base station
     // to transmit overrides to the default values...
     uint32_t pumpOffMinutes = msToMinutes(millis() - pumpStopTime);
     if (pumpStopTime && MIN_PUMP_OFF_MINUTES > pumpOffMinutes) {
-        dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", pumpOffMinutes, MIN_PUMP_OFF_MINUTES);
-        buttonLedErrorFlash();
-        return;
+        if (!lastStartAttemptTime || millis() - lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000) {
+            startAttemptCount++;
+        } else {
+            lastStartAttemptTime = millis();
+            startAttemptCount = 1;
+        }
+
+        if (MIN_PUMP_START_ATTEMPTS > startAttemptCount) {
+            dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", pumpOffMinutes, MIN_PUMP_OFF_MINUTES);
+            buttonLedErrorFlash();
+            return;
+        } else {
+            dbg("Pump override enabled!");
+
+            // reset the attempt counter/time
+            lastStartAttemptTime = 0;
+            startAttemptCount = 0;
+        }
     }
 
     buttonLedThinkingFlash();
@@ -259,7 +272,7 @@ void stopPump() {
     if (!pumpRunning) {
         dbg("Pump was already stopped %lumin ago", msToMinutes(millis() - pumpStopTime));
         // don't do anything if the pump is already stopped
-        // XXX anything to report back to base station?
+        // TODO anything to report back to base station?
         return;
     }
 

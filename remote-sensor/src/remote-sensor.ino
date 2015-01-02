@@ -56,12 +56,12 @@
 #define LED           13           // pin 13 == LED_BUILTIN
 #define STATUS_LED_PIN LED_BUILTIN // XBee Status LED
 #define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
-#define UNUSED_PIN_14 14           // unused (Analog 0)
-#define UNUSED_PIN_15 15           // unused (Analog 1)
+#define UNUSED_PIN_14 14           // unused   (Analog 0)
+#define UNUSED_PIN_15 15           // unused   (Analog 1)
 #define CTS_PIN       16           // XBee CTS (Analog 2)
-#define SLEEP_PIN     17           // XBee SP (DTR) (Analog 3)
-#define SS_TX_PIN     18           // XBee RX (Analog 4)
-#define SS_RX_PIN     19           // XBee TX (Analog 5)
+#define SLEEP_PIN     17           // XBee DTR (Analog 3)
+#define SS_TX_PIN     18           // XBee RX  (Analog 4)
+#define SS_RX_PIN     19           // XBee TX  (Analog 5)
 
 /*
  * Unused pins can drain power, set them to INPUT
@@ -83,7 +83,7 @@ void setupUnusedPins() {
 XBee xbee = XBee();
 
 XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
-ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
+ZBTxRequest zbTx = ZBTxRequest(addr64, sensorValues, sizeof(sensorValues));
 
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
@@ -178,7 +178,7 @@ void setupInterrupt() {
  * Remote Sensor (MAIN)
  */
 uint32_t lastTransmitTime = 0;
-bool payloadChanged = false;
+bool sensorValuesChanged = false;
 
 /*
  * Narcoleptic library tracks its total sleep time,
@@ -205,14 +205,14 @@ void flashLed(int pin, int times, int wait) {
 }
 
 /*
- * Show the current payload values as ON/OFF strings
+ * Show the current sensorValues as ON/OFF strings
  */
-void displayPayload() {
+void displaySensorValues() {
     dbg("Sensor States:");
 
     for(int i = 0; i < TOTAL_SENSOR_INPUTS; i++)
     {
-        if(1 == payload[i]) {
+        if(1 == sensorValues[i]) {
             dbg("\tSensor %d:\t***ON***", i);
         } else {
             dbg("\tSensor %d:\tOFF", i);
@@ -221,11 +221,11 @@ void displayPayload() {
 }
 
 /*
- * Update the payload from the input shift register values
+ * Update the sensorValues from the input shift register values
  */
-void updatePayload() {
+void updateSensorValues() {
     // assume it's unchanged since the last update
-    payloadChanged = false;
+    sensorValuesChanged = false;
 
     int* values = inputs.getValues();
 
@@ -237,25 +237,25 @@ void updatePayload() {
             value = value ? 0 : 1;
         }
 
-        if (payload[i] != value) {
-            payloadChanged = true;
-            payload[i] = value;
+        if (sensorValues[i] != value) {
+            sensorValuesChanged = true;
+            sensorValues[i] = value;
         }
     }
 }
 
 /*
- * Check if the payload changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
- * since the last payload change, and transmit the payload to the base station.
+ * Check if the sensorValues changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
+ * since the last sensorValues change, and transmit the sensorValues to the base station.
  */
-void transmitPayload() {
-    if (payloadChanged || (now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) ) {
+void transmitSensorValues() {
+    if (sensorValuesChanged || (now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) ) {
         dbg("Sending data...");
         lastTransmitTime = now();
         
         wakeXBee();
 
-        // zbTx already has a reference to the payload
+        // zbTx already has a reference to the sensorValues
         xbee.send(zbTx);
 
         dbg("Data sent...");
@@ -319,28 +319,28 @@ void setup() {
 
     dbg("setup() completed!");
 
-    dbg("Performing initial sensor read & transmit");
+    dbg("Performing initial update & transmit");
 
-    updatePayload();
+    updateSensorValues();
 
-    displayPayload();
+    displaySensorValues();
 
     // force initial transmitting of values
-    payloadChanged = true;
+    sensorValuesChanged = true;
 
-    transmitPayload();
+    transmitSensorValues();
 }
 
 void loop() {
     sleepArduino();
 
-    updatePayload();
+    updateSensorValues();
 
     if (interruptedByPin) {
         interruptedByPin = false;
-        displayPayload();
+        displaySensorValues();
     }
 
-    transmitPayload();
+    transmitSensorValues();
 }
 

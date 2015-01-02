@@ -15,7 +15,7 @@
 #define XBEE_STATUS_WAIT_MS 500
 
 /*
- * Payload positions of sensor values
+ * Remote Sensor Values
  */
 
 // Tank 1 has *two* float switches at the top, with
@@ -27,6 +27,7 @@
 #define TANK_1_FLOAT_4  4
 #define TANK_1_FLOAT_5  5
 #define TANK_1_FLOAT_6  6
+
 #define TANK_1_INVERTED_FLOAT TANK_1_FLOAT_0
  
 #define TANK_2_FLOAT_1  7
@@ -60,8 +61,19 @@
 #define UNUSED_INPUT_5   31 
 
 // how many sensors are available
+// (not how many are actually used)
 #define TOTAL_SENSOR_INPUTS 32
+uint8_t sensorValues[TOTAL_SENSOR_INPUTS];
 
-uint8_t payload[TOTAL_SENSOR_INPUTS];
+/*
+ * Pump Switch Values
+ */
+
+#define TOTAL_PUMP_VALUES 2
+uint8_t pumpValues[TOTAL_PUMP_VALUES];
+
+//XXX adjust these to actual values (60 , 60)
+#define MAX_PUMP_ON_MINUTES  2
+#define MIN_PUMP_OFF_MINUTES 2
 
 #endif //Danaides_h

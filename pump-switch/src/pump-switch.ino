@@ -9,8 +9,11 @@
  * 
  */
 
-#include <XBee.h>
 #include <SoftwareSerial.h>
+
+#include "XBee.h"
+#include "Dbg.h"
+#include "Bounce2.h"
 
 #include "Danaides.h"
 
@@ -18,46 +21,79 @@
  * Constants
  */
 
-#define STATUS_LED 13
-#define ERROR_LED  13
+// how often to check pump elapsed time
+#define CHECK_INTERVAL_SECONDS 5
 
-#define SS_RX_PIN  12
-#define SS_TX_PIN  11
+// how often to transmit values, regardless of previous sensor values
+#define FORCE_TRANSMIT_INTERVAL_SECONDS 60
 
-// how long to wait for a status response after sending a message
-#define STATUS_WAIT_MS 500
+// enable debug output
+// 1 == ON
+// 0 == OFF
+#define DEBUG_ENABLED 1
 
-SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
+/*
+ * Pins
+ */
 
-XBee xbee = XBee();
+#define BUTTON_PIN     3           // Momentary switch
+#define BUTTON_LED     4           // Momentary switch LED (blue)
+#define UNUSED_PIN_5   5           // unused
+#define UNUSED_PIN_6   6           // unused
+#define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
+#define UNUSED_PIN_8   8           // unused
+#define UNUSED_PIN_9   9           // unused
+#define UNUSED_PIN_10 10           // unused
+#define UNUSED_PIN_11 11           // unused
+#define UNUSED_PIN_12 12           // unused
+#define LED           13           // pin 13 == LED_BUILTIN
+#define STATUS_LED_PIN LED_BUILTIN // XBee Status LED
+#define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
+#define UNUSED_PIN_14 14           // unused  (Analog 0)
+#define UNUSED_PIN_15 15           // unused  (Analog 1)
+#define UNUSED_PIN_16 16           // unused  (Analog 2)
+#define UNUSED_PIN_17 17           // unused  (Analog 3)
+#define SS_TX_PIN     18           // XBee RX (Analog 4)
+#define SS_RX_PIN     19           // XBee TX (Analog 5)
 
-// Address of receiving (Base Station) radio
-XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, BASE_STATION_ADDRESS);
+/*
+ * Unused pins can drain power, set them to INPUT
+ * w/internal PULLUP enabled to prevent power drain.
+ */
+void setupUnusedPins() {
+    pinMode(UNUSED_PIN_5,  INPUT_PULLUP);
+    pinMode(UNUSED_PIN_6,  INPUT_PULLUP);
+    pinMode(UNUSED_PIN_8,  INPUT_PULLUP);
+    pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
+    pinMode(UNUSED_PIN_10, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_11, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_12, INPUT_PULLUP);
 
-uint8_t data[] = {0, 1};
-
-ZBTxRequest zbTx = ZBTxRequest(addr64, data, sizeof(data));
-ZBTxStatusResponse txStatus = ZBTxStatusResponse();
-
-void flashLed(int pin, int times, int wait) {
-    for (int i = 0; i < times; i++) {
-        digitalWrite(pin, HIGH);
-        delay(wait);
-        digitalWrite(pin, LOW);
-
-        if (i + 1 < times) {
-            delay(wait);
-        }
-    }
+    pinMode(UNUSED_PIN_14, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_15, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_16, INPUT_PULLUP);
+    pinMode(UNUSED_PIN_17, INPUT_PULLUP);
 }
 
-void setup() {
-    // hardware serial is being used for FTDI debugging
-    Serial.begin(9600);
-    Serial.println("setup() start..");
+/*
+ * XBee
+ */ 
+XBee xbee = XBee();
 
-    pinMode(STATUS_LED, OUTPUT);
-    pinMode(ERROR_LED, OUTPUT);
+XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
+ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValues, sizeof(pumpValues));
+
+ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+
+// XBee will use SoftwareSerial for communications, reserve the HardwareSerial
+// for debugging w/FTDI interface.
+SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
+
+void setupXBee() {
+    dbg("Setting up XBee...");
+
+    pinMode(STATUS_LED_PIN, OUTPUT);
+    pinMode(ERROR_LED_PIN, OUTPUT);
 
     // software serial is used for XBee communications
     pinMode(SS_RX_PIN, INPUT);
@@ -65,62 +101,253 @@ void setup() {
     ss.begin(9600);
     xbee.setSerial(ss);
 
-    Serial.println("setup() completed!");
+    dbg("Completed XBee setup");
+}
+
+/*
+ * Pump Switch (MAIN)
+ */
+uint32_t lastTransmitTime = 0;
+uint32_t pumpStartTime    = 0;
+uint32_t pumpStopTime     = 0;
+uint32_t pumpCheckTime    = 0;
+bool pumpValuesChanged = false;
+bool buttonLedEnabled  = false;
+bool pumpRunning       = false;
+
+// Support diagnsotic LED flashing
+void flashLed(int pin, int times, int wait) {
+    flashLed(false, pin, times, wait);
+}
+
+void flashLed(bool state, int pin, int times, int wait) {
+    for (int i = 0; i < times; i++) {
+        state ? digitalWrite(pin, LOW) : digitalWrite(pin, HIGH);
+        delay(wait);
+        state ? digitalWrite(pin, HIGH) : digitalWrite(pin, LOW);
+
+        if (i + 1 < times) {
+            delay(wait);
+        }
+    }
+}
+
+uint32_t msToMinutes(uint32_t ms) {
+    return (ms / 1000) / 60;
+}
+
+/*
+ * Momentary Switch w/LED (button)
+ */
+Bounce debouncer = Bounce(); 
+
+void setupButton() {
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(BUTTON_LED, OUTPUT);
+
+    // start with the LED off
+    digitalWrite(BUTTON_LED, LOW);
+
+    debouncer.attach(BUTTON_PIN);
+    debouncer.interval(5); // ms
+}
+
+void buttonPressed() {
+    dbg("Button pressed!");
+
+    pumpRunning ?  stopPump() : startPump();
+}
+
+void enableButtonLed() {
+    // idempotent, don't check current state
+
+    buttonLedEnabled = true;
+    digitalWrite(BUTTON_LED, HIGH);
+}
+
+void disableButtonLed() {
+    // idempotent, don't check current state
+
+    buttonLedEnabled = false;
+    digitalWrite(BUTTON_LED, LOW);
+}
+
+void buttonLedThinkingFlash() {
+    // flash to show "thinking"
+    flashLed(buttonLedEnabled, BUTTON_LED, 5, 100);
+}
+
+void buttonLedErrorFlash() {
+    // flash to show error/refusal
+    flashLed(buttonLedEnabled, BUTTON_LED, 5, 500);
+}
+
+void buttonLedCheckFlash() {
+    // flash to show error/refusal
+    flashLed(buttonLedEnabled, BUTTON_LED, 1, 500);
+}
+
+/*
+ * Check how long the pump has been running and 
+ * stop the pump if it exceeds MAX_PUMP_ON_MINUTES.
+ */
+void checkPump() {
+    if (pumpRunning && millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000) {
+        pumpCheckTime = millis();
+        buttonLedCheckFlash();
+
+        uint32_t pumpOnMinutes = msToMinutes(millis() - pumpStartTime);
+        if (MAX_PUMP_ON_MINUTES <= pumpOnMinutes) {
+            dbg("Pump run time [%lumin] exceeded max [%dmin], stopping pump", 
+                    pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+            stopPump();
+        } else {
+            dbg("Pump run time [%lumin] less than max [%dmin], not stopping", 
+                    pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+            // do nothing
+        }
+    }
+}
+
+/*
+ * Start the pump, triggered either by user input (button)
+ * or via request from the base station.
+ */
+void startPump() {
+    dbg("Starting pump...");
+
+    if (pumpRunning) {
+        dbg("Pump is already running for %lumin", msToMinutes(millis() - pumpStartTime));
+        // don't do anything if the pump is already running
+        // XXX report back the time it has been running to base station?
+        return;
+    }
+
+    //XXX provide "reset timers" switch to allow running pump more frequently?
+    // or let base station do this w/overrides?
+    // or just power-cycle?
+
+    // don't start the pump if it hasn't rested long enough
+    //XXX make this configurable with switches on base station, allow base station
+    // to transmit overrides to the default values...
+    uint32_t pumpOffMinutes = msToMinutes(millis() - pumpStopTime);
+    if (pumpStopTime && MIN_PUMP_OFF_MINUTES > pumpOffMinutes) {
+        dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", pumpOffMinutes, MIN_PUMP_OFF_MINUTES);
+        buttonLedErrorFlash();
+        return;
+    }
+
+    buttonLedThinkingFlash();
+
+    pumpRunning = true;
+    pumpStartTime = millis();
+
+    // TODO start the pump
+
+    // turn on the LED
+    enableButtonLed();
+    dbg("Pump started");
+}
+
+/*
+ * Stop the pump, triggered either by user input (button)
+ * or via request from the base station.
+ */
+void stopPump() {
+    dbg("Stopping pump");
+
+    if (!pumpRunning) {
+        dbg("Pump was already stopped %lumin ago", msToMinutes(millis() - pumpStopTime));
+        // don't do anything if the pump is already stopped
+        // XXX anything to report back to base station?
+        return;
+    }
+
+    buttonLedThinkingFlash();
+
+    pumpRunning = false;
+    pumpStopTime = millis();
+
+    // TODO stop the pump
+
+    // turn off the LED
+    disableButtonLed();
+    dbg("Pump stopped");
+}
+
+/*
+ * Check if the pumpValues changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
+ * since the last pumpValues change, and transmit the pumpValues to the base station.
+ */
+void transmitPumpValues() {
+    if (pumpValuesChanged || millis() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) {
+        dbg("Sending data...");
+        lastTransmitTime = millis();
+        
+        // zbTx already has a reference to the pumpValues
+        xbee.send(zbTx);
+
+        dbg("Data sent...");
+        flashLed(STATUS_LED_PIN, 1, 100);
+
+        if (xbee.readPacket(XBEE_STATUS_WAIT_MS)) {
+            if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
+                xbee.getResponse().getZBTxStatusResponse(txStatus);
+
+                if (SUCCESS == txStatus.getDeliveryStatus()) {
+                    dbg("Success!");
+                    flashLed(STATUS_LED_PIN, 5, 50);
+                } else {
+                    dbg("Failure :(");
+                    flashLed(ERROR_LED_PIN, 3, 500);
+                }
+            }
+        } else if (xbee.getResponse().isError()) {
+            dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
+        } else {
+            dbg("Local XBee didn't provide a timely TX status response (should not happen)");
+            flashLed(ERROR_LED_PIN, 2, 50);
+        }
+
+        dbg("Total transmit time: %lums", millis() - lastTransmitTime);
+    }
+}
+
+void setup() {
+    // hardware serial is used for FTDI debugging
+    Debug.begin();
+
+    dbg("setup() start..");
+
+    setupUnusedPins();
+
+    setupButton();
+
+    setupXBee();
+
+    dbg("setup() completed!");
+
+    dbg("Performing initial update & transmit");
+
+    // force initial transmitting of values
+    pumpValuesChanged = true;
+
+    transmitPumpValues();
+
+    // XXX remove this once we're updating it properly
+    pumpValuesChanged = false;
 }
 
 void loop() {
-    Serial.println("About to send values...");
 
-    // flip-flop the values for testing...
-    if (0 == data[0]) {
-        data[0] = 1;
-        data[1] = 0;
-    } else {
-        data[0] = 0;
-        data[1] = 1;
+    debouncer.update();
+
+    if (debouncer.fell()) {
+        buttonPressed();
     }
 
-    Serial.print("Sending values: ");
-    Serial.print(data[0]);
-    Serial.print(" ");
-    Serial.println(data[1]);
+    checkPump();
 
-    // send the data!
-    xbee.send(zbTx);
-
-    Serial.println("Data sent!");
-    flashLed(STATUS_LED, 1, 100);
-
-    Serial.print("Waiting up to ");
-    Serial.print(STATUS_WAIT_MS);
-    Serial.println("ms for a response");
-
-    if (xbee.readPacket(STATUS_WAIT_MS)) {
-        Serial.print("RESPONSE_API_ID=");
-        Serial.print(xbee.getResponse().getApiId());
-        Serial.print(" i.e. ");
-
-        if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
-            Serial.println("ZB_TX_STATUS_RESPONSE");
-            xbee.getResponse().getZBTxStatusResponse(txStatus);
-
-            if (SUCCESS == txStatus.getDeliveryStatus()) {
-                Serial.println("Success!");
-                flashLed(STATUS_LED, 5, 50);
-            } else {
-                Serial.println("Failure :(");
-                flashLed(ERROR_LED, 3, 500);
-            }
-        }
-    } else if (xbee.getResponse().isError()) {
-        Serial.print("Error reading packet. Error code: ");
-        Serial.println(xbee.getResponse().getErrorCode());
-    } else {
-        Serial.println("Local XBee didn't provide a timely TX status response (should not happen)");
-        flashLed(ERROR_LED, 2, 50);
-    }
-
-    Serial.println("Waiting 10s before doing it all again...");
-    delay(10000);
+    transmitPumpValues();
 }
 

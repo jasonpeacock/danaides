@@ -39,7 +39,7 @@
 
 #define BUTTON_PIN     3           // Momentary switch
 #define BUTTON_LED     4           // Momentary switch LED (blue)
-#define UNUSED_PIN_5   5           // unused
+#define PUMP_RELAY_PIN 5           // Pump Relay Switch
 #define UNUSED_PIN_6   6           // unused
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define UNUSED_PIN_8   8           // unused
@@ -62,7 +62,6 @@
  * w/internal PULLUP enabled to prevent power drain.
  */
 void setupUnusedPins() {
-    pinMode(UNUSED_PIN_5,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_6,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_8,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
@@ -146,6 +145,22 @@ void flashLed(bool state, int pin, int times, int wait) {
 
 uint32_t msToMinutes(uint32_t ms) {
     return (ms / 1000) / 60;
+}
+
+/*
+ * Pump Relay
+ */
+void setupRelay() {
+    pinMode(PUMP_RELAY_PIN, OUTPUT);
+    digitalWrite(PUMP_RELAY_PIN, LOW);
+}
+
+void enableRelay() {
+    digitalWrite(PUMP_RELAY_PIN, HIGH);
+}
+
+void disableRelay() {
+    digitalWrite(PUMP_RELAY_PIN, LOW);
 }
 
 /*
@@ -269,7 +284,7 @@ void startPump() {
     pumpRunning = true;
     pumpStartTime = millis();
 
-    // TODO start the pump
+    enableRelay();
 
     // turn on the LED
     enableButtonLed();
@@ -296,6 +311,7 @@ void stopPump() {
     pumpStopTime = millis();
 
     // TODO stop the pump
+    disableRelay();
 
     // turn off the LED
     disableButtonLed();
@@ -394,6 +410,8 @@ void setup() {
     dbg("setup() start..");
 
     setupUnusedPins();
+
+    setupRelay();
 
     setupButton();
 

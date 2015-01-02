@@ -14,6 +14,7 @@
 #include "XBee.h"
 #include "Dbg.h"
 #include "Bounce2.h"
+#include "Adafruit_LEDBackpack.h"
 
 #include "Danaides.h"
 
@@ -49,12 +50,12 @@
 #define LED           13           // pin 13 == LED_BUILTIN
 #define STATUS_LED_PIN LED_BUILTIN // XBee Status LED
 #define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
-#define UNUSED_PIN_14 14           // unused  (Analog 0)
-#define UNUSED_PIN_15 15           // unused  (Analog 1)
-#define UNUSED_PIN_16 16           // unused  (Analog 2)
-#define UNUSED_PIN_17 17           // unused  (Analog 3)
-#define SS_TX_PIN     18           // XBee RX (Analog 4)
-#define SS_RX_PIN     19           // XBee TX (Analog 5)
+#define UNUSED_PIN_14 14           // unused    (Analog 0)
+#define UNUSED_PIN_15 15           // unused    (Analog 1)
+#define SS_TX_PIN     16           // XBee RX   (Analog 2)
+#define SS_RX_PIN     17           // XBee TX   (Analog 3)
+#define I2C_DATA_PIN  18           // I2C Data  (Analog 4)
+#define I2C_CLOCK_PIN 19           // I2C Clock (Analog 5)
 
 /*
  * Unused pins can drain power, set them to INPUT
@@ -71,8 +72,6 @@ void setupUnusedPins() {
 
     pinMode(UNUSED_PIN_14, INPUT_PULLUP);
     pinMode(UNUSED_PIN_15, INPUT_PULLUP);
-    pinMode(UNUSED_PIN_16, INPUT_PULLUP);
-    pinMode(UNUSED_PIN_17, INPUT_PULLUP);
 }
 
 /*
@@ -102,6 +101,17 @@ void setupXBee() {
     xbee.setSerial(ss);
 
     dbg("Completed XBee setup");
+}
+
+/*
+ * Adafruit 7-segment LED Numeric display
+ */
+Adafruit_7segment counter = Adafruit_7segment();
+
+void setupCounter() {
+    counter.begin(0x70); // default address for first/single display
+    counter.clear();
+    counter.writeDisplay();
 }
 
 /*
@@ -194,20 +204,24 @@ void buttonLedCheckFlash() {
  * stop the pump if it exceeds MAX_PUMP_ON_MINUTES.
  */
 void checkPump() {
-    if (pumpRunning && millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000) {
+    if (millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000) {
         pumpCheckTime = millis();
-        buttonLedCheckFlash();
 
-        uint32_t pumpOnMinutes = msToMinutes(millis() - pumpStartTime);
-        if (MAX_PUMP_ON_MINUTES <= pumpOnMinutes) {
-            dbg("Pump run time [%lumin] exceeded max [%dmin], stopping pump", 
-                    pumpOnMinutes, MAX_PUMP_ON_MINUTES);
-            stopPump();
-        } else {
-            dbg("Pump run time [%lumin] less than max [%dmin], not stopping", 
-                    pumpOnMinutes, MAX_PUMP_ON_MINUTES);
-            // do nothing
+        if (pumpRunning) {
+            uint32_t pumpOnMinutes = msToMinutes(millis() - pumpStartTime);
+            if (MAX_PUMP_ON_MINUTES <= pumpOnMinutes) {
+                dbg("Pump run time [%lumin] exceeded max [%dmin], stopping pump", 
+                        pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+                stopPump();
+            } else {
+                dbg("Pump run time [%lumin] less than max [%dmin], not stopping", 
+                        pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+                // do nothing
+            }
         }
+
+        // regardless of pump state, always blink/flash
+        buttonLedCheckFlash();
     }
 }
 
@@ -288,6 +302,53 @@ void stopPump() {
     dbg("Pump stopped");
 }
 
+void updateCounter() {
+    if (pumpRunning) {
+        int maxSeconds = MAX_PUMP_ON_MINUTES * 60;
+
+        // flash the colon (dots) every 0.5s
+        bool drawColon = (millis() % 1000 < 500) ? true : false;
+        counter.drawColon(drawColon);
+
+        // setup the countdoun value
+        int elapsedSeconds = maxSeconds - (int)((millis() - pumpStartTime) / 1000);
+
+        if (0 < elapsedSeconds) {
+            int elapsedMinutes = (int)(elapsedSeconds / 60);
+
+            int elapsedMinutesTens = (int)(elapsedMinutes / 10);
+            counter.writeDigitNum(0, elapsedMinutesTens, false);
+
+            int elapsedMinutesOnes = elapsedMinutes % 10;
+            counter.writeDigitNum(1, elapsedMinutesOnes, false);
+
+            int remainderSeconds = elapsedSeconds % 60;
+
+            int remainderSecondsTens = (int)(remainderSeconds / 10);
+            counter.writeDigitNum(3, remainderSecondsTens, false);
+
+            int remainderSecondsOnes = remainderSeconds % 10;
+            counter.writeDigitNum(4, remainderSecondsOnes, false);
+        } else {
+            // if the count goes negative, start flashing "00:00"
+            if (drawColon) {
+                counter.writeDigitNum(0, 0, false);
+                counter.writeDigitNum(1, 0, false);
+                counter.writeDigitNum(3, 0, false);
+                counter.writeDigitNum(4, 0, false);
+            } else {
+                counter.clear();
+            }
+        }
+        
+    } else {
+        // clear the display
+        counter.clear();
+    }
+
+    counter.writeDisplay();
+}
+
 /*
  * Check if the pumpValues changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
  * since the last pumpValues change, and transmit the pumpValues to the base station.
@@ -336,6 +397,8 @@ void setup() {
 
     setupButton();
 
+    setupCounter();
+
     setupXBee();
 
     dbg("setup() completed!");
@@ -358,6 +421,8 @@ void loop() {
     if (debouncer.fell()) {
         buttonPressed();
     }
+    
+    updateCounter();
 
     checkPump();
 

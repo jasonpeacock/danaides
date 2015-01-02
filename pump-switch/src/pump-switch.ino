@@ -79,7 +79,7 @@ void setupUnusedPins() {
 XBee xbee = XBee();
 
 XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
-ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValues, sizeof(pumpValues));
+ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValuesOut, sizeof(pumpValuesOut));
 
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
@@ -122,7 +122,7 @@ uint32_t pumpStopTime     = 0;
 uint32_t pumpCheckTime    = 0;
 uint32_t lastStartAttemptTime = 0;
 int startAttemptCount = 0;
-bool pumpValuesChanged = false;
+bool pumpValuesOutChanged = false;
 bool buttonLedEnabled  = false;
 bool pumpRunning       = false;
 
@@ -219,7 +219,7 @@ void buttonLedCheckFlash() {
  * stop the pump if it exceeds MAX_PUMP_ON_MINUTES.
  */
 void checkPump() {
-    if (millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000) {
+    if (millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000LU) {
         pumpCheckTime = millis();
 
         if (pumpRunning) {
@@ -259,7 +259,7 @@ void startPump() {
     // to transmit overrides to the default values...
     uint32_t pumpOffMinutes = msToMinutes(millis() - pumpStopTime);
     if (pumpStopTime && MIN_PUMP_OFF_MINUTES > pumpOffMinutes) {
-        if (!lastStartAttemptTime || millis() - lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000) {
+        if (!lastStartAttemptTime || millis() - lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
             startAttemptCount++;
         } else {
             lastStartAttemptTime = millis();
@@ -370,7 +370,8 @@ void updateCounter() {
  * since the last pumpValues change, and transmit the pumpValues to the base station.
  */
 void transmitPumpValues() {
-    if (pumpValuesChanged || millis() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) {
+    dbg("checking transmit, delta = %lu, limit = %lu", millis() - lastTransmitTime, FORCE_TRANSMIT_INTERVAL_SECONDS * 1000LU);
+    if (pumpValuesOutChanged || millis() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000LU) {
         dbg("Sending data...");
         lastTransmitTime = millis();
         
@@ -424,12 +425,12 @@ void setup() {
     dbg("Performing initial update & transmit");
 
     // force initial transmitting of values
-    pumpValuesChanged = true;
+    pumpValuesOutChanged = true;
 
     transmitPumpValues();
 
     // XXX remove this once we're updating it properly
-    pumpValuesChanged = false;
+    pumpValuesOutChanged = false;
 }
 
 void loop() {

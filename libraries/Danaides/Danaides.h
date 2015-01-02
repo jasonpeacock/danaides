@@ -18,8 +18,7 @@
  * Remote Sensor Values
  */
 
-// Tank 1 has *two* float switches at the top, with
-// one of them inverted for redundancy.
+// outgoing
 #define TANK_1_FLOAT_0  0
 #define TANK_1_FLOAT_1  1
 #define TANK_1_FLOAT_2  2
@@ -28,6 +27,8 @@
 #define TANK_1_FLOAT_5  5
 #define TANK_1_FLOAT_6  6
 
+// Tank 1 has *two* float switches at the top, with
+// one of them inverted for redundancy.
 #define TANK_1_INVERTED_FLOAT TANK_1_FLOAT_0
  
 #define TANK_2_FLOAT_1  7
@@ -69,10 +70,22 @@ uint8_t sensorValues[TOTAL_SENSOR_INPUTS];
  * Pump Switch Values
  */
 
-#define TOTAL_PUMP_VALUES 2
-uint8_t pumpValues[TOTAL_PUMP_VALUES];
+// outgoing
+#define PUMP_STATE   0
+#define PUMP_MINUTES 1
+#define PUMP_SECONDS 2
 
-//XXX adjust these to actual values (60 , 60)
+#define TOTAL_PUMP_OUTGOING_VALUES 3
+uint8_t pumpValuesOut[TOTAL_PUMP_OUTGOING_VALUES];
+
+// incoming
+#define OVERRIDE_MAX_ON_MINUTES  0
+#define OVERRIDE_MIN_OFF_MINUTES 1
+
+#define TOTAL_PUMP_INCOMING_VALUES 2
+uint8_t pumpValuesIn[TOTAL_PUMP_INCOMING_VALUES];
+
+//XXX adjust these to actual values (60min each)
 #define MAX_PUMP_ON_MINUTES  2
 #define MIN_PUMP_OFF_MINUTES 2
 

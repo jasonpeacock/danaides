@@ -370,7 +370,6 @@ void updateCounter() {
  * since the last pumpValues change, and transmit the pumpValues to the base station.
  */
 void transmitPumpValues() {
-    dbg("checking transmit, delta = %lu, limit = %lu", millis() - lastTransmitTime, FORCE_TRANSMIT_INTERVAL_SECONDS * 1000LU);
     if (pumpValuesOutChanged || millis() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000LU) {
         dbg("Sending data...");
         lastTransmitTime = millis();

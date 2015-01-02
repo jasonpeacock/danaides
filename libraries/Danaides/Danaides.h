@@ -70,24 +70,26 @@ uint8_t sensorValues[TOTAL_SENSOR_INPUTS];
  * Pump Switch Values
  */
 
-// outgoing
+// pump switch outgoing data
 #define PUMP_STATE   0
-#define PUMP_MINUTES 1
-#define PUMP_SECONDS 2
+#define PUMP_SECONDS 1
+#define PUMP_MINUTES 2
+#define PUMP_HOURS   3
+#define PUMP_DAYS    4
 
-#define TOTAL_PUMP_OUTGOING_VALUES 3
-uint8_t pumpValuesOut[TOTAL_PUMP_OUTGOING_VALUES];
+#define TOTAL_PUMP_VALUES 5
+uint8_t pumpValues[TOTAL_PUMP_VALUES];
 
-// incoming
-#define OVERRIDE_MAX_ON_MINUTES  0
-#define OVERRIDE_MIN_OFF_MINUTES 1
+// pump switch incoming data
+#define OVERRIDE_MAX_PUMP_ON_MINUTES  0
+#define OVERRIDE_MIN_PUMP_OFF_MINUTES 1
 
-#define TOTAL_PUMP_INCOMING_VALUES 2
-uint8_t pumpValuesIn[TOTAL_PUMP_INCOMING_VALUES];
+#define TOTAL_PUMP_SETTINGS 2
+uint8_t pumpSettings[TOTAL_PUMP_SETTINGS];
 
 //XXX adjust these to actual values (60min each)
-#define MAX_PUMP_ON_MINUTES  2
-#define MIN_PUMP_OFF_MINUTES 2
+#define DEFAULT_MAX_PUMP_ON_MINUTES  2
+#define DEFAULT_MIN_PUMP_OFF_MINUTES 2
 
 #define PUMP_START_ATTEMPTS_WINDOW_SECONDS 60
 #define MIN_PUMP_START_ATTEMPTS 3

@@ -22,11 +22,11 @@
  * Constants
  */
 
-// how often to check pump elapsed time
+// how often to check pump state
 #define CHECK_INTERVAL_SECONDS 5
 
-// how often to transmit values, regardless of previous sensor values
-#define FORCE_TRANSMIT_INTERVAL_SECONDS 60
+// how often to transmit values
+#define TRANSMIT_INTERVAL_SECONDS 60
 
 // enable debug output
 // 1 == ON
@@ -79,7 +79,7 @@ void setupUnusedPins() {
 XBee xbee = XBee();
 
 XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
-ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValuesOut, sizeof(pumpValuesOut));
+ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValues, sizeof(pumpValues));
 
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
@@ -121,8 +121,11 @@ uint32_t pumpStartTime    = 0;
 uint32_t pumpStopTime     = 0;
 uint32_t pumpCheckTime    = 0;
 uint32_t lastStartAttemptTime = 0;
+
 int startAttemptCount = 0;
-bool pumpValuesOutChanged = false;
+int maxPumpOnMinutes  = DEFAULT_MAX_PUMP_ON_MINUTES;
+int minPumpOffMinutes = DEFAULT_MIN_PUMP_OFF_MINUTES;
+
 bool buttonLedEnabled  = false;
 bool pumpRunning       = false;
 
@@ -131,6 +134,7 @@ void flashLed(int pin, int times, int wait) {
     flashLed(false, pin, times, wait);
 }
 
+// flash/blink the LED, based on current button LED state
 void flashLed(bool state, int pin, int times, int wait) {
     for (int i = 0; i < times; i++) {
         state ? digitalWrite(pin, LOW) : digitalWrite(pin, HIGH);
@@ -216,7 +220,7 @@ void buttonLedCheckFlash() {
 
 /*
  * Check how long the pump has been running and 
- * stop the pump if it exceeds MAX_PUMP_ON_MINUTES.
+ * stop the pump if it exceeds the limit.
  */
 void checkPump() {
     if (millis() - pumpCheckTime > CHECK_INTERVAL_SECONDS * 1000LU) {
@@ -224,13 +228,13 @@ void checkPump() {
 
         if (pumpRunning) {
             uint32_t pumpOnMinutes = msToMinutes(millis() - pumpStartTime);
-            if (MAX_PUMP_ON_MINUTES <= pumpOnMinutes) {
+            if (maxPumpOnMinutes <= pumpOnMinutes) {
                 dbg("Pump run time [%lumin] exceeded max [%dmin], stopping pump", 
-                        pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+                        pumpOnMinutes, maxPumpOnMinutes);
                 stopPump();
             } else {
                 dbg("Pump run time [%lumin] less than max [%dmin], not stopping", 
-                        pumpOnMinutes, MAX_PUMP_ON_MINUTES);
+                        pumpOnMinutes, maxPumpOnMinutes);
                 // do nothing
             }
         }
@@ -250,7 +254,6 @@ void startPump() {
     if (pumpRunning) {
         dbg("Pump is already running for %lumin", msToMinutes(millis() - pumpStartTime));
         // don't do anything if the pump is already running
-        // TODO report back the time it has been running to base station?
         return;
     }
 
@@ -258,7 +261,7 @@ void startPump() {
     // TODO make this configurable with switches on base station, allow base station
     // to transmit overrides to the default values...
     uint32_t pumpOffMinutes = msToMinutes(millis() - pumpStopTime);
-    if (pumpStopTime && MIN_PUMP_OFF_MINUTES > pumpOffMinutes) {
+    if (pumpStopTime && minPumpOffMinutes > pumpOffMinutes) {
         if (!lastStartAttemptTime || millis() - lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
             startAttemptCount++;
         } else {
@@ -267,7 +270,7 @@ void startPump() {
         }
 
         if (MIN_PUMP_START_ATTEMPTS > startAttemptCount) {
-            dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", pumpOffMinutes, MIN_PUMP_OFF_MINUTES);
+            dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", pumpOffMinutes, minPumpOffMinutes);
             buttonLedErrorFlash();
             return;
         } else {
@@ -282,8 +285,13 @@ void startPump() {
     buttonLedThinkingFlash();
 
     pumpRunning = true;
+    pumpValues[PUMP_STATE] = pumpRunning;
+    pumpValues[PUMP_MINUTES] = 0;
+    pumpValues[PUMP_SECONDS] = 0;
+
     pumpStartTime = millis();
 
+    // actually start the pump!
     enableRelay();
 
     // turn on the LED
@@ -301,16 +309,19 @@ void stopPump() {
     if (!pumpRunning) {
         dbg("Pump was already stopped %lumin ago", msToMinutes(millis() - pumpStopTime));
         // don't do anything if the pump is already stopped
-        // TODO anything to report back to base station?
         return;
     }
 
     buttonLedThinkingFlash();
 
     pumpRunning = false;
+    pumpValues[PUMP_STATE] = pumpRunning;
+    pumpValues[PUMP_MINUTES] = 0;
+    pumpValues[PUMP_SECONDS] = 0;
+
     pumpStopTime = millis();
 
-    // TODO stop the pump
+    // actually stop the pump!
     disableRelay();
 
     // turn off the LED
@@ -318,34 +329,59 @@ void stopPump() {
     dbg("Pump stopped");
 }
 
-void updateCounter() {
-    if (pumpRunning) {
-        int maxSeconds = MAX_PUMP_ON_MINUTES * 60;
+/*
+ * Calculate the elapsed time since the pump started/stopped
+ * as Days, Hours, Minutes, Seconds and update the pumpValues,
+ * then update the 7-segment display if the pump is running with
+ * the elapsed MIN:SEC.
+ *
+ * The Days & Hours are calculated for the pumpValues because
+ * the pump may be off for multiple hours/days and we need to inform
+ * the base station.
+ *
+ * The 7-segment display always uses elapsedMinutes and never tries
+ * to show hours b/c the pump should never be on continously longer
+ * then 60-90minutes.
+ */
+void updateCounterAndPumpValues() {
+    pumpValues[PUMP_STATE] = pumpRunning;
 
-        // flash the colon (dots) every 0.5s
+    if (pumpRunning) {
+        uint32_t maxSeconds = maxPumpOnMinutes * 60;
+
+        // flash the colon every 0.5s
         bool drawColon = (millis() % 1000 < 500) ? true : false;
         counter.drawColon(drawColon);
 
-        // setup the countdoun value
-        int elapsedSeconds = maxSeconds - (int)((millis() - pumpStartTime) / 1000);
+        // setup the countdoun value, use not-unsigned int so that we know
+        // if it's gone negative (b/c checkPump cycle doesn't align perfectly
+        // with this counter updater).
+        int32_t elapsedSeconds = maxSeconds - (uint32_t)((millis() - pumpStartTime) / 1000LU);
 
         if (0 < elapsedSeconds) {
-            int elapsedMinutes = (int)(elapsedSeconds / 60);
+            uint32_t elapsedMinutes = (uint32_t)(elapsedSeconds / 60);
+            uint32_t elapsedHours   = (uint32_t)(elapsedMinutes / 60);
+            uint8_t  elapsedDays    = (uint32_t)(elapsedHours / 24);
 
-            int elapsedMinutesTens = (int)(elapsedMinutes / 10);
-            counter.writeDigitNum(0, elapsedMinutesTens, false);
+            uint32_t remainderHours   = elapsedHours % 24;
+            uint32_t remainderMinutes = elapsedMinutes % 60;
+            uint32_t remainderSeconds = elapsedSeconds % 60;
 
-            int elapsedMinutesOnes = elapsedMinutes % 10;
-            counter.writeDigitNum(1, elapsedMinutesOnes, false);
+            pumpValues[PUMP_DAYS]    = elapsedDays;
+            pumpValues[PUMP_HOURS]   = remainderHours;
+            pumpValues[PUMP_MINUTES] = remainderMinutes;
+            pumpValues[PUMP_SECONDS] = remainderSeconds;
 
-            int remainderSeconds = elapsedSeconds % 60;
-
-            int remainderSecondsTens = (int)(remainderSeconds / 10);
-            counter.writeDigitNum(3, remainderSecondsTens, false);
-
-            int remainderSecondsOnes = remainderSeconds % 10;
-            counter.writeDigitNum(4, remainderSecondsOnes, false);
+            counter.writeDigitNum(0, elapsedMinutes / 10, false);
+            counter.writeDigitNum(1, elapsedMinutes % 10, false);
+            counter.writeDigitNum(3, remainderSeconds / 10, false);
+            counter.writeDigitNum(4, remainderSeconds % 10, false);
         } else {
+            pumpValues[PUMP_DAYS]    = 0;
+            pumpValues[PUMP_HOURS]   = 0;
+            pumpValues[PUMP_MINUTES] = 0;
+            pumpValues[PUMP_SECONDS] = 0;
+
             // if the count goes negative, start flashing "00:00"
             if (drawColon) {
                 counter.writeDigitNum(0, 0, false);
@@ -356,8 +392,22 @@ void updateCounter() {
                 counter.clear();
             }
         }
-        
     } else {
+        // pump not running, still update the pump values
+        uint32_t elapsedSeconds = (uint32_t)((millis() - pumpStopTime) / 1000LU);
+        uint32_t elapsedMinutes = (uint32_t)(elapsedSeconds / 60);
+        uint32_t elapsedHours   = (uint32_t)(elapsedMinutes / 60);
+        uint8_t  elapsedDays    = (uint32_t)(elapsedHours / 24);
+
+        uint8_t remainderHours   = elapsedHours % 24;
+        uint8_t remainderMinutes = elapsedMinutes % 60;
+        uint8_t remainderSeconds = elapsedSeconds % 60;
+
+        pumpValues[PUMP_DAYS]    = elapsedDays;
+        pumpValues[PUMP_HOURS]   = remainderHours;
+        pumpValues[PUMP_MINUTES] = remainderMinutes;
+        pumpValues[PUMP_SECONDS] = remainderSeconds;
+
         // clear the display
         counter.clear();
     }
@@ -365,12 +415,26 @@ void updateCounter() {
     counter.writeDisplay();
 }
 
+void setupPumpValues() {
+    pumpValues[PUMP_STATE]   = 0;
+    pumpValues[PUMP_DAYS]    = 0;
+    pumpValues[PUMP_HOURS]   = 0;
+    pumpValues[PUMP_MINUTES] = 0;
+    pumpValues[PUMP_SECONDS] = 0;
+}
+
 /*
- * Check if the pumpValues changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
- * since the last pumpValues change, and transmit the pumpValues to the base station.
+ * Receive pumpValues from the base station
+ */
+void receivePumpValues() {
+    // TODO receive data from XBee radio
+}
+
+/*
+ * Transmit pumpValues to the base station.
  */
 void transmitPumpValues() {
-    if (pumpValuesOutChanged || millis() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000LU) {
+    if (!lastTransmitTime || millis() - lastTransmitTime >= TRANSMIT_INTERVAL_SECONDS * 1000LU) {
         dbg("Sending data...");
         lastTransmitTime = millis();
         
@@ -411,6 +475,8 @@ void setup() {
 
     setupUnusedPins();
 
+    setupPumpValues();
+
     setupRelay();
 
     setupButton();
@@ -423,26 +489,19 @@ void setup() {
 
     dbg("Performing initial update & transmit");
 
-    // force initial transmitting of values
-    pumpValuesOutChanged = true;
-
     transmitPumpValues();
-
-    // XXX remove this once we're updating it properly
-    pumpValuesOutChanged = false;
 }
 
 void loop() {
 
     debouncer.update();
-
     if (debouncer.fell()) {
         buttonPressed();
     }
     
-    updateCounter();
-
     checkPump();
+
+    updateCounterAndPumpValues();
 
     transmitPumpValues();
 }

@@ -63,35 +63,18 @@
 
 // how many sensors are available
 // (not how many are actually used)
-#define TOTAL_SENSOR_INPUTS 32
-uint8_t sensorValues[TOTAL_SENSOR_INPUTS];
+#define SENSOR_TOTAL_INPUTS 32
+uint8_t sensorValues[SENSOR_TOTAL_INPUTS];
 
 /*
  * Pump Switch Values
  */
 
-// pump switch outgoing data
-#define PUMP_STATE   0
-#define PUMP_SECONDS 1
-#define PUMP_MINUTES 2
-#define PUMP_HOURS   3
-#define PUMP_DAYS    4
-
-#define TOTAL_PUMP_VALUES 5
-uint8_t pumpValues[TOTAL_PUMP_VALUES];
-
 // pump switch incoming data
 #define OVERRIDE_MAX_PUMP_ON_MINUTES  0
 #define OVERRIDE_MIN_PUMP_OFF_MINUTES 1
 
-#define TOTAL_PUMP_SETTINGS 2
-uint8_t pumpSettings[TOTAL_PUMP_SETTINGS];
-
-//XXX adjust these to actual values (60min each)
-#define DEFAULT_MAX_PUMP_ON_MINUTES  2
-#define DEFAULT_MIN_PUMP_OFF_MINUTES 2
-
-#define PUMP_START_ATTEMPTS_WINDOW_SECONDS 60
-#define MIN_PUMP_START_ATTEMPTS 3
+#define PUMP_TOTAL_SETTINGS 2
+uint8_t pumpSettings[PUMP_TOTAL_SETTINGS];
 
 #endif //Danaides_h

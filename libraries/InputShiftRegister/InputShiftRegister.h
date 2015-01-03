@@ -1,4 +1,4 @@
-#ifndef InputShiftRegsiter_h
+#ifndef InputShiftRegister_h
 #define InputShiftRegister_h
 
 /*

@@ -20,6 +20,7 @@
 
 #include "Danaides.h"
 #include "InputShiftRegister.h"
+#include "LED.h"
 
 /*
  * Constants
@@ -53,9 +54,7 @@
 #define UNUSED_PIN_10 10           // unused
 #define UNUSED_PIN_11 11           // unused
 #define UNUSED_PIN_12 12           // unused
-#define LED           13           // pin 13 == LED_BUILTIN
-#define STATUS_LED_PIN LED_BUILTIN // XBee Status LED
-#define ERROR_LED_PIN  LED_BUILTIN // XBee Error LED
+#define STATUS_LED    13           // XBee Status LED
 #define UNUSED_PIN_14 14           // unused   (Analog 0)
 #define UNUSED_PIN_15 15           // unused   (Analog 1)
 #define CTS_PIN       16           // XBee CTS (Analog 2)
@@ -91,13 +90,10 @@ ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 // for debugging w/FTDI interface.
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 
+LED statusLed = LED(STATUS_LED);
+
 void setupXBee() {
     dbg("Setting up XBee...");
-
-    // XXX remove eventually, this consumes too much power
-    // for battery use...
-    pinMode(STATUS_LED_PIN, OUTPUT);
-    pinMode(ERROR_LED_PIN, OUTPUT);
 
     pinMode(SLEEP_PIN, OUTPUT);
     digitalWrite(SLEEP_PIN, LOW);
@@ -111,6 +107,10 @@ void setupXBee() {
     xbee.setSerial(ss);
 
     waitForXBeeWake();
+
+    // XXX remove eventually, this consumes too much power
+    // for battery use...
+    statusLed.setup();
 
     // now sleep it until we need it
     sleepXBee();
@@ -145,7 +145,7 @@ void sleepXBee() {
 /*
  * InputShiftRegister
  */
-InputShiftRegister inputs(TOTAL_SENSOR_INPUTS, PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
+InputShiftRegister inputs(SENSOR_TOTAL_INPUTS, PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
 
 /*
  * Arduino sleep
@@ -210,7 +210,7 @@ void flashLed(int pin, int times, int wait) {
 void displaySensorValues() {
     dbg("Sensor States:");
 
-    for(int i = 0; i < TOTAL_SENSOR_INPUTS; i++)
+    for(int i = 0; i < SENSOR_TOTAL_INPUTS; i++)
     {
         if(1 == sensorValues[i]) {
             dbg("\tSensor %d:\t***ON***", i);
@@ -259,7 +259,7 @@ void transmitSensorValues() {
         xbee.send(zbTx);
 
         dbg("Data sent...");
-        flashLed(STATUS_LED_PIN, 1, 100);
+        statusLed.flash(1, 100);
 
         if (xbee.readPacket(XBEE_STATUS_WAIT_MS)) {
             if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
@@ -267,17 +267,17 @@ void transmitSensorValues() {
 
                 if (SUCCESS == txStatus.getDeliveryStatus()) {
                     dbg("Success!");
-                    flashLed(STATUS_LED_PIN, 5, 50);
+                    statusLed.flash(5, 50);
                 } else {
                     dbg("Failure :(");
-                    flashLed(ERROR_LED_PIN, 3, 500);
+                    statusLed.flash(3, 500);
                 }
             }
         } else if (xbee.getResponse().isError()) {
             dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
         } else {
             dbg("Local XBee didn't provide a timely TX status response (should not happen)");
-            flashLed(ERROR_LED_PIN, 2, 50);
+            statusLed.flash(2, 50);
         }
 
         sleepXBee();

@@ -66,6 +66,7 @@ class PumpSwitch {
         bool isOff();
 
         uint8_t* getPumpValues();
+        uint8_t getNumPumpValues();
         int getMaxOnMinutes();
         int getMinOffMinutes();
         uint32_t getElapsedSeconds();

@@ -13,10 +13,14 @@ LED::LED(int pin) {
 LED::~LED() {
 }
 
+void LED::_resetHeartbeat() {
+    _lastHeartbeatTime = millis();
+}
+
 void LED::_init(int pin) {
     _pin = pin;
-    _lastHeartbeatTime = millis();
     _enabled = false;
+    _resetHeartbeat();
 }
 
 void LED::setup() {
@@ -30,12 +34,14 @@ void LED::setup() {
 void LED::on() {
     _enabled = true;
     digitalWrite(_pin, HIGH);
+    _resetHeartbeat();
 }
 
 // idempotent, don't check current state
 void LED::off() {
     _enabled = false;
     digitalWrite(_pin, LOW);
+    _resetHeartbeat();
 }
 
 // flash/blink the LED, based on current button LED state
@@ -49,6 +55,7 @@ void LED::flash(int times, int wait) {
             delay(wait);
         }
     }
+    _resetHeartbeat();
 }
 
 /*
@@ -58,18 +65,20 @@ void LED::flash(int times, int wait) {
 // show a "thinking" LED
 void LED::thinking() {
     flash(5, 100);
+    _resetHeartbeat();
 }
 
 // show error/refusal
 void LED::error() {
     flash(3, 500);
+    _resetHeartbeat();
 }
 
 // show "I'm alive"
 void LED::heartbeat() {
     if (millis() - _lastHeartbeatTime > LED_HEARTBEAT_INTERVAL_SECONDS * 1000LU) {
-        _lastHeartbeatTime = millis();
         flash(1, 250);
+        _resetHeartbeat();
     }
 }
 

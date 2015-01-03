@@ -105,6 +105,10 @@ uint8_t* PumpSwitch::getPumpValues() {
     return _pumpValues;
 }
 
+uint8_t PumpSwitch::getNumPumpValues() {
+    return PUMP_TOTAL_VALUES;
+}
+
 int PumpSwitch::getMaxOnMinutes() {
     return _maxOnMinutes;
 }
@@ -188,13 +192,15 @@ void PumpSwitch::start() {
 
     _led.thinking();
 
+    // turn on the LED
+    _led.on();
+
+    // set the internal state
     _on();
 
     // actually start the pump!
     (*_startCallback)();
 
-    // turn on the LED
-    _led.on();
     dbg("Pump started");
 }
 
@@ -213,13 +219,15 @@ void PumpSwitch::stop() {
 
     _led.thinking();
 
+    // turn off the LED
+    _led.off();
+
+    // set the internal state
     _off();
 
     // actually stop the pump!
     (*_stopCallback)();
 
-    // turn off the LED
-    _led.off();
     dbg("Pump stopped");
 }
 

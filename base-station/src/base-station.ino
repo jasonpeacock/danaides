@@ -180,7 +180,6 @@ void disablePump() {
 /*
  * Adafruit 7-segment LED Numeric display
  */
-//XXX change to alpha display
 Adafruit_AlphaNum4 alpha = Adafruit_AlphaNum4();
 
 void setupAlpha() {
@@ -241,16 +240,17 @@ void setup() {
 
     setupXBee();
 
-    // play a melody on startup
-    playSetupMelody();
-
     dbg("setup() completed!");
 
     dbg("Performing initial update & transmit");
 
     // TODO transmit any initial values
 
+    // say hello
     scrollAlphaMessage("HELLO", 1);
+
+    // play a melody
+    playSetupMelody();
 }
 
 void loop() {

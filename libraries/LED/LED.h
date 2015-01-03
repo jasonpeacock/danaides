@@ -14,6 +14,7 @@ class LED {
         bool _enabled;
 
         void _init(int pin);
+        void _resetHeartbeat();
 
     public:
         LED();

@@ -196,7 +196,7 @@ void transmitPumpValues() {
         lastTransmitTime = millis();
 
         
-        ZBTxRequest zbTx = ZBTxRequest(addr64, pumpSwitch.getPumpValues(), PUMP_TOTAL_VALUES);
+        ZBTxRequest zbTx = ZBTxRequest(addr64, pumpSwitch.getPumpValues(), pumpSwitch.getNumPumpValues());
         xbee.send(zbTx);
 
         dbg("Data sent...");

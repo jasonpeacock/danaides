@@ -5,7 +5,7 @@
  * Private
  */
 
-void Data::_init(uint16_t address, uint8_t* data, uint8_t size) {
+void Data::_init(uint32_t address, uint8_t* data, uint8_t size) {
     _address = address;
     _size = size;
 
@@ -32,7 +32,7 @@ Data::Data() : _initialized(false),
                _size(0) {
 }
 
-Data::Data(uint16_t address, uint8_t *data, uint8_t size) : _initialized(false) {
+Data::Data(uint32_t address, uint8_t *data, uint8_t size) : _initialized(false) {
     _init(address, data, size);
 }
 
@@ -42,7 +42,7 @@ Data::~Data() {
     }
 }
 
-void Data::set(uint16_t address, uint8_t *data, uint8_t size) {
+void Data::set(uint32_t address, uint8_t *data, uint8_t size) {
     _init(address, data, size);
 }
 
@@ -54,7 +54,7 @@ uint8_t Data::getSize() {
     return _size;
 }
 
-uint16_t Data::getAddress() {
+uint32_t Data::getAddress() {
     return _address;
 }
 

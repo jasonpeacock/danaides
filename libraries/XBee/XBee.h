@@ -103,7 +103,6 @@
 #define AT_COMMAND_RESPONSE 0x88
 #define REMOTE_AT_COMMAND_RESPONSE 0x97
 
-
 /**
  * TX STATUS constants
  */

@@ -119,67 +119,6 @@ void setupWAN() {
     wan.setup();
 }
 
-
-/* XXX
-
-XBee xbee = XBee();
-
-//XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_PUMP_SWITCH_ADDRESS);
-//ZBTxRequest zbTx = ZBTxRequest(addr64, pumpValues, sizeof(pumpValues));
-//ZBTxStatusResponse txStatus = ZBTxStatusResponse();
-
-// create reusable response objects for responses we expect to handle
-ZBRxResponse zbRx = ZBRxResponse();
-
-void setupXBee() {
-    dbg("Setting up XBee...");
-
-    // software serial is used for XBee communications
-    pinMode(SS_RX_PIN, INPUT);
-    pinMode(SS_TX_PIN, OUTPUT);
-    ss.begin(9600);
-    xbee.setSerial(ss);
-
-    statusLed.setup();
-
-    dbg("Completed XBee setup");
-}
-
-void receiveXBee() {
-    xbee.readPacket();
-
-    if (xbee.getResponse().isAvailable()) {
-        if (ZB_RX_RESPONSE == xbee.getResponse().getApiId()) {
-            xbee.getResponse().getZBRxResponse(zbRx);
-
-            dbg("ZB_RX_RESPONSE");
-
-            if (ZB_PACKET_ACKNOWLEDGED == zbRx.getOption()) {
-                // sender got an ACK
-                statusLed.flash(10, 10);
-            } else {
-                // no ACK for sender
-                statusLed.flash(2, 20);
-            }
-
-            dbg("Received data:");
-            for (int i = 0; i < zbRx.getDataLength(); i++) {
-                dbg("%d: [%d]", i, zbRx.getData()[i]);
-            }
-        } else {
-            dbg("UNEXPECTED");
-
-            // not something we were expecting
-            statusLed.flash(5, 10);
-        }
-    } else if (xbee.getResponse().isError()) {
-        dbg("Error reading packet. Error code: %d", xbee.getResponse().getErrorCode());
-    }
- 
-}
-
- XXX */
-
 /*
  * Send messages to pump-switch
  */
@@ -241,13 +180,41 @@ void scrollAlphaMessage(char* message, int numScrolls) {
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
 void receive() {
-    Data data = Data();
+    uint32_t lastReceiveTime = millis();
 
+    Data data = Data();
     if (wan.receive(data)) {
-        dbg("New data from %d:", data.getAddress());
+        dbg("New data from 0x%08X:", data.getAddress());
         for (uint8_t i = 0; i < data.getSize(); i++) {
             dbg("%d:\t%d", i, data.getData()[i]);
         }
+
+        dbg("Total receive time: %dms", millis() - lastReceiveTime);
+        Serial.flush();
+    }
+}
+
+uint32_t lastTransmitTime = 0;
+void transmit() {
+    if (!lastTransmitTime || millis() - lastTransmitTime > 60 * 1000UL) {
+        lastTransmitTime = millis();
+
+        dbg("transmitting...");
+        Serial.flush();
+
+        pumpSettings[OVERRIDE_MAX_PUMP_ON_MINUTES]  = 5;
+        pumpSettings[OVERRIDE_MIN_PUMP_OFF_MINUTES] = 5;
+
+        Data pumpSwitchData = Data(XBEE_PUMP_SWITCH_ADDRESS, pumpSettings, PUMP_TOTAL_SETTINGS);
+        
+        if (wan.transmit(&pumpSwitchData)) {
+            dbg("PumpSwitch data sent!");
+        } else {
+            dbg("Failed to transmit Pump Switch data");
+        }
+
+        dbg("Total transmit time: %dms", millis() - lastTransmitTime);
+        Serial.flush();
     }
 }
 
@@ -265,7 +232,6 @@ void setup() {
 
     setupAlpha();
 
-    //setupXBee();
     setupWAN();
 
     dbg("setup() completed!");
@@ -284,7 +250,7 @@ void setup() {
 void loop() {
     pumpSwitch.check();
     
-    //receiveXBee();
-    //wan.receive(data);
     receive();
+
+    transmit();
 }

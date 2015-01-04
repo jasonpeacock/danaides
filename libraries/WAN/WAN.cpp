@@ -21,12 +21,14 @@ void WAN::_init(Stream &serial) {
 
 WAN::WAN(Stream &serial) : _xbee(XBee()), 
                            _zbRx(ZBRxResponse()), 
+                           _zbTxStatus(ZBTxStatusResponse()),
                            _statusLed(LED(0)) {
     _init(serial);
 }
 
 WAN::WAN(Stream &serial, LED statusLed) : _xbee(XBee()), 
                                           _zbRx(ZBRxResponse()), 
+                                          _zbTxStatus(ZBTxStatusResponse()),
                                           _statusLed(statusLed) {
     _init(serial);
 }
@@ -48,27 +50,20 @@ bool WAN::receive(Data &data) {
         if (ZB_RX_RESPONSE == _xbee.getResponse().getApiId()) {
             _xbee.getResponse().getZBRxResponse(_zbRx);
 
-            dbg("ZB_RX_RESPONSE");
-
-            if (ZB_PACKET_ACKNOWLEDGED == _zbRx.getOption()) {
-                // sender got an ACK
-                _statusLed.flash(10, 10);
-            } else {
-                // no ACK for sender
-                _statusLed.flash(2, 20);
-            }
-
-            data.set(_zbRx.getRemoteAddress16(), _zbRx.getData(), _zbRx.getDataLength());
-
-            dbg("Received data:");
-            for (int i = 0; i < _zbRx.getDataLength(); i++) {
-                dbg("%d:\t[%d]", i, _zbRx.getData()[i]);
-            }
+            data.set(_zbRx.getRemoteAddress64().getLsb(), _zbRx.getData(), _zbRx.getDataLength());
 
             received = true;
 
+        } else if (ZB_TX_STATUS_RESPONSE == _xbee.getResponse().getApiId()) {
+            _xbee.getResponse().getZBTxStatusResponse(_zbTxStatus);
+
+            if (SUCCESS == _zbTxStatus.getDeliveryStatus()) {
+                dbg("Delivery Success!");
+            } else {
+                dbg("Delivery Failure :(");
+            }
         } else {
-            dbg("UNEXPECTED");
+            dbg("UNEXPECTED RESPONSE: %d", _xbee.getResponse().getApiId());
 
             // not something we were expecting
             _statusLed.flash(5, 10);
@@ -80,7 +75,14 @@ bool WAN::receive(Data &data) {
     return received;
 }
 
-bool WAN::transmit(Data data) {
+bool WAN::transmit(Data *data) {
+    XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, data->getAddress());
+    ZBTxRequest zbTx = ZBTxRequest(addr64, data->getData(), data->getSize());
+    
+    dbg("Sending %u values to 0x%lX", data->getSize(), data->getAddress());
+
+    _xbee.send(zbTx);
+
     return true;
 }
 

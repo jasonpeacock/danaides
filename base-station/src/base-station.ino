@@ -5,15 +5,19 @@
  *
  */
 
+// system
 #include <SoftwareSerial.h>
 
+// third-party
 #include "Adafruit_LEDBackpack.h"
 #include "Dbg.h"
 #include "XBee.h"
 
+// local
 #include "Danaides.h"
 #include "PumpSwitch.h"
 #include "LED.h"
+#include "WAN.h"
 
 #include "pitches.h"
 
@@ -59,17 +63,6 @@ void setupUnusedPins() {
     pinMode(UNUSED_PIN_14, INPUT_PULLUP);
 }
 
-// how often to check pump state
-#define CHECK_INTERVAL_SECONDS 5
-
-// how often to transmit values to pump switch
-#define TRANSMIT_INTERVAL_SECONDS 60
-
-// enable debug output
-// 1 == ON
-// 0 == OFF
-#define DEBUG_ENABLED 1
-
 /*
  * Piezo Speaker
  */
@@ -105,6 +98,30 @@ void playSetupMelody() {
 /*
  * XBee
  */ 
+
+// how often to transmit values to pump switch
+#define TRANSMIT_INTERVAL_SECONDS 60
+
+// XBee will use SoftwareSerial for communications, reserve the HardwareSerial
+// for debugging w/FTDI interface.
+SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
+
+LED statusLed = LED(STATUS_LED);
+
+WAN wan = WAN(ss, statusLed);
+
+void setupWAN() {
+    // software serial is used for XBee communications
+    pinMode(SS_RX_PIN, INPUT);
+    pinMode(SS_TX_PIN, OUTPUT);
+    ss.begin(9600);
+
+    wan.setup();
+}
+
+
+/* XXX
+
 XBee xbee = XBee();
 
 //XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_PUMP_SWITCH_ADDRESS);
@@ -113,12 +130,6 @@ XBee xbee = XBee();
 
 // create reusable response objects for responses we expect to handle
 ZBRxResponse zbRx = ZBRxResponse();
-
-// XBee will use SoftwareSerial for communications, reserve the HardwareSerial
-// for debugging w/FTDI interface.
-SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
-
-LED statusLed = LED(STATUS_LED);
 
 void setupXBee() {
     dbg("Setting up XBee...");
@@ -167,6 +178,11 @@ void receiveXBee() {
  
 }
 
+ XXX */
+
+/*
+ * Send messages to pump-switch
+ */
 void enablePump() {
     dbg("Pump enabled!");
     scrollAlphaMessage("PUMP ENABLED", 1);
@@ -224,6 +240,17 @@ void scrollAlphaMessage(char* message, int numScrolls) {
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
+void receive() {
+    Data data = Data();
+
+    if (wan.receive(data)) {
+        dbg("New data from %d:", data.getAddress());
+        for (uint8_t i = 0; i < data.getSize(); i++) {
+            dbg("%d:\t%d", i, data.getData()[i]);
+        }
+    }
+}
+
 void setup() {
     // hardware serial is used for FTDI debugging
     Debug.begin();
@@ -238,7 +265,8 @@ void setup() {
 
     setupAlpha();
 
-    setupXBee();
+    //setupXBee();
+    setupWAN();
 
     dbg("setup() completed!");
 
@@ -250,11 +278,13 @@ void setup() {
     scrollAlphaMessage("HELLO", 1);
 
     // play a melody
-    playSetupMelody();
+    //playSetupMelody();
 }
 
 void loop() {
     pumpSwitch.check();
     
-    receiveXBee();
+    //receiveXBee();
+    //wan.receive(data);
+    receive();
 }

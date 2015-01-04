@@ -1,5 +1,5 @@
 #ifndef _DBG_H_
-#define _DBG_H
+#define _DBG_H_
 #include <Arduino.h>
 
 #define DEBUG_ENABLED 1

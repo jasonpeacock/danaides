@@ -4,17 +4,6 @@
 #include <inttypes.h>
 
 /*
- * XBee radio settings
- */
-#define XBEE_FAMILY_ADDRESS        0x0013A200
-#define XBEE_BASE_STATION_ADDRESS  0x40C59926
-#define XBEE_REMOTE_SENSOR_ADDRESS 0x40C59899
-#define XBEE_PUMP_SWITCH_ADDRESS   0x40C31683
-
-// how long to wait for a status response after sending a message
-#define XBEE_STATUS_WAIT_MS 500
-
-/*
  * Remote Sensor Values
  */
 

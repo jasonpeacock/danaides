@@ -10,6 +10,7 @@ void Data::_init(uint32_t address, uint8_t* data, uint8_t size) {
     _size = size;
 
     if (_initialized) {
+        // delete the old data before allocating more
         delete [] _data;
     }
 

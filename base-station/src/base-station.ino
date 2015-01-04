@@ -73,17 +73,17 @@ void setupSpeaker() {
 
 void playSetupMelody() {
     // note durations: 4 = quarter note, 8 = eighth note, etc.:
-    int noteDurations[] = {4, 8, 8, 4, 4, 4, 4, 4};
-    int melody[] = {NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
-    int numNotes = 8;
+    uint8_t noteDurations[] = {4, 8, 8, 4, 4, 4, 4, 4};
+    uint16_t melody[] = {NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4};
+    uint8_t numNotes = 8;
 
     // iterate over the notes of the melody:
-    for (int thisNote = 0; thisNote < numNotes; thisNote++) {
+    for (uint8_t thisNote = 0; thisNote < numNotes; thisNote++) {
 
         // to calculate the note duration, take one second
         // divided by the note type.
         //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-        int noteDuration = 1000 / noteDurations[thisNote];
+        uint16_t noteDuration = 1000 / noteDurations[thisNote];
         tone(SPEAKER_PIN, melody[thisNote], noteDuration);
 
         // to distinguish the notes, set a minimum time between them.
@@ -143,14 +143,14 @@ void setupAlpha() {
     alpha.writeDisplay();
 }
 
-void scrollAlphaMessage(char* message, int numScrolls) {
-    int messageSize = strlen(message);
+void scrollAlphaMessage(char* message, uint8_t numScrolls) {
+    uint8_t messageSize = strlen(message); // max 255 chars
     char displayBuffer[4] = {' ', ' ', ' ', ' '};
 
     while(numScrolls > 0) {
         numScrolls--;
         
-        for (int i = 0; i < messageSize + 4; i++) {
+        for (uint8_t i = 0; i < messageSize + 4; i++) {
             // scroll the message off the display by including
             // 4 extra empty chars
             char c = message[i];
@@ -184,7 +184,7 @@ void receive() {
 
     Data data = Data();
     if (wan.receive(data)) {
-        dbg("New data from 0x%08X:", data.getAddress());
+        dbg("New data from 0x%lX:", data.getAddress());
         for (uint8_t i = 0; i < data.getSize(); i++) {
             dbg("%d:\t%d", i, data.getData()[i]);
         }
@@ -196,7 +196,7 @@ void receive() {
 
 uint32_t lastTransmitTime = 0;
 void transmit() {
-    if (!lastTransmitTime || millis() - lastTransmitTime > 60 * 1000UL) {
+    if (!lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         lastTransmitTime = millis();
 
         dbg("transmitting...");
@@ -240,11 +240,11 @@ void setup() {
 
     // TODO transmit any initial values
 
-    // say hello
+    // say something
     scrollAlphaMessage("HELLO", 1);
 
-    // play a melody
-    //playSetupMelody();
+    // play a sound
+    playSetupMelody();
 }
 
 void loop() {

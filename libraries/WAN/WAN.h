@@ -18,9 +18,6 @@
 #define XBEE_REMOTE_SENSOR_ADDRESS 0x40C59899UL
 #define XBEE_PUMP_SWITCH_ADDRESS   0x40C31683UL
 
-// how long to wait for a status response after sending a message
-#define XBEE_STATUS_WAIT_MS 500
-
 class WAN {
     private:
         LED _statusLed;

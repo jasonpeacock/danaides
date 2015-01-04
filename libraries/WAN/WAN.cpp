@@ -1,5 +1,5 @@
-//system
-//#include <Arduino.h>
+// system
+#include <inttypes.h>
 
 // third-party
 #include "Dbg.h"
@@ -45,13 +45,13 @@ bool WAN::receive(Data &data) {
     _xbee.readPacket();
 
     bool received = false;
-
     if (_xbee.getResponse().isAvailable()) {
         if (ZB_RX_RESPONSE == _xbee.getResponse().getApiId()) {
             _xbee.getResponse().getZBRxResponse(_zbRx);
 
             data.set(_zbRx.getRemoteAddress64().getLsb(), _zbRx.getData(), _zbRx.getDataLength());
 
+            // data has been updated
             received = true;
 
         } else if (ZB_TX_STATUS_RESPONSE == _xbee.getResponse().getApiId()) {
@@ -64,9 +64,6 @@ bool WAN::receive(Data &data) {
             }
         } else {
             dbg("UNEXPECTED RESPONSE: %d", _xbee.getResponse().getApiId());
-
-            // not something we were expecting
-            _statusLed.flash(5, 10);
         }
     } else if (_xbee.getResponse().isError()) {
         dbg("Error reading packet. Error code: %d", _xbee.getResponse().getErrorCode());

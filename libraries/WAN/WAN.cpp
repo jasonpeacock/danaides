@@ -83,3 +83,26 @@ bool WAN::transmit(Data *data) {
     return true;
 }
 
+uint32_t WAN::getBaseStationAddress() {
+    return XBEE_BASE_STATION_ADDRESS;
+}
+
+uint32_t WAN::getRemoteSensorAddress() {
+    return XBEE_REMOTE_SENSOR_ADDRESS;
+}
+
+uint32_t WAN::getPumpSwitchAddress() {
+    return XBEE_PUMP_SWITCH_ADDRESS;
+}
+
+bool WAN::isBaseStationAddress(uint32_t address) {
+    return XBEE_BASE_STATION_ADDRESS == address;
+}
+
+bool WAN::isRemoteSensorAddress(uint32_t address) {
+    return XBEE_REMOTE_SENSOR_ADDRESS == address;
+}
+
+bool WAN::isPumpSwitchAddress(uint32_t address) {
+    return XBEE_PUMP_SWITCH_ADDRESS == address;
+}

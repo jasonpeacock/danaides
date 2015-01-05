@@ -15,8 +15,8 @@
 
 // local
 #include "Danaides.h"
-#include "PumpSwitch.h"
 #include "LED.h"
+#include "PumpSwitch.h"
 #include "WAN.h"
 
 #include "pitches.h"
@@ -184,7 +184,26 @@ void receive() {
 
     Data data = Data();
     if (wan.receive(data)) {
-        dbg("New data from 0x%lX:", data.getAddress());
+        dbg("Received data...");
+        Serial.flush();
+
+        uint32_t address = data.getAddress();
+        if (wan.isBaseStationAddress(address)) {
+            dbg("New data from Base Station (0x%lX)", address);
+            // we're the base station, this would be weird
+        } else if (wan.isRemoteSensorAddress(address)) {
+            dbg("New data from Remote Sensor (0x%lX)", address);
+            // TODO update the display
+        } else if (wan.isPumpSwitchAddress(address)) {
+            dbg("New data from Pump Switch (0x%lX)", address);
+            if (data.getSize() == pumpSwitch.getNumValues()) {
+                // update the local PumpSwitch object, the remote switch is always
+                // the authority for the values (pump state & elapsed time)
+                pumpSwitch.updateValues(data.getData(), data.getSize());
+                dbg("Updated Pump Switch values");
+            }
+        }
+
         for (uint8_t i = 0; i < data.getSize(); i++) {
             dbg("%d:\t%d", i, data.getData()[i]);
         }
@@ -202,12 +221,9 @@ void transmit() {
         dbg("transmitting...");
         Serial.flush();
 
-        pumpSettings[OVERRIDE_MAX_PUMP_ON_MINUTES]  = 5;
-        pumpSettings[OVERRIDE_MIN_PUMP_OFF_MINUTES] = 5;
-
-        Data pumpSwitchData = Data(XBEE_PUMP_SWITCH_ADDRESS, pumpSettings, PUMP_TOTAL_SETTINGS);
+        Data settings = Data(wan.getPumpSwitchAddress(), pumpSwitch.getSettings(), pumpSwitch.getNumSettings());
         
-        if (wan.transmit(&pumpSwitchData)) {
+        if (wan.transmit(&settings)) {
             dbg("PumpSwitch data sent!");
         } else {
             dbg("Failed to transmit Pump Switch data");

@@ -21,6 +21,7 @@
 class WAN {
     private:
         LED _statusLed;
+
         XBee _xbee;
         ZBRxResponse _zbRx;
         ZBTxStatusResponse _zbTxStatus;
@@ -36,6 +37,13 @@ class WAN {
 
         bool receive(Data &data);
         bool transmit(Data *data);
+
+        uint32_t getBaseStationAddress();
+        uint32_t getRemoteSensorAddress();
+        uint32_t getPumpSwitchAddress();
+        bool isBaseStationAddress(uint32_t address);
+        bool isRemoteSensorAddress(uint32_t address);
+        bool isPumpSwitchAddress(uint32_t address);
 
 };
 

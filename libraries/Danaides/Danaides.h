@@ -55,15 +55,4 @@
 #define SENSOR_TOTAL_INPUTS 32
 uint8_t sensorValues[SENSOR_TOTAL_INPUTS];
 
-/*
- * Pump Switch Values
- */
-
-// pump switch incoming data
-#define OVERRIDE_MAX_PUMP_ON_MINUTES  0
-#define OVERRIDE_MIN_PUMP_OFF_MINUTES 1
-
-#define PUMP_TOTAL_SETTINGS 2
-uint8_t pumpSettings[PUMP_TOTAL_SETTINGS];
-
 #endif //Danaides_h

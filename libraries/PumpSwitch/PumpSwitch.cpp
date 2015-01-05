@@ -1,9 +1,7 @@
-#include <Arduino.h>
-
-#include "Bounce2.h"
+// third-party
 #include "Dbg.h"
 
-#include "LED.h"
+// local
 #include "PumpSwitch.h"
 
 /*
@@ -14,28 +12,33 @@ uint32_t PumpSwitch::_msToMinutes(uint32_t ms) {
     return (ms / 1000) / 60;
 }
 
-void PumpSwitch::_resetPumpValues(bool running) {
+void PumpSwitch::_resetValues(bool running) {
     _time = millis();
-    _pumpValues[PUMP_STATE]   = running;
-    _pumpValues[PUMP_DAYS]    = 0;
-    _pumpValues[PUMP_HOURS]   = 0;
-    _pumpValues[PUMP_MINUTES] = 0;
-    _pumpValues[PUMP_SECONDS] = 0;
+    _values[PUMP_VALUES_STATE]   = running;
+    _values[PUMP_VALUES_DAYS]    = 0;
+    _values[PUMP_VALUES_HOURS]   = 0;
+    _values[PUMP_VALUES_MINUTES] = 0;
+    _values[PUMP_VALUES_SECONDS] = 0;
+}
+
+void PumpSwitch::_resetSettings() {
+    _settings[PUMP_SETTINGS_MAX_ON_MINUTES]  = PUMP_DEFAULT_MAX_ON_MINUTES;
+    _settings[PUMP_SETTINGS_MIN_OFF_MINUTES] = PUMP_DEFAULT_MIN_OFF_MINUTES;
 }
 
 void PumpSwitch::_on() {
-    _resetPumpValues(true);
+    _resetValues(true);
 }
 
 void PumpSwitch::_off() {
-    _resetPumpValues(false);
+    _resetValues(false);
 }
 
 /*
  * Calculate the elapsed time since the pump started/stopped
- * as Days, Hours, Minutes, Seconds and update the pumpValues.
+ * as Days, Hours, Minutes, Seconds and update the values.
  *
- * The Days & Hours are calculated for the pumpValues because
+ * The Days & Hours are calculated for the values because
  * the pump may be off for multiple hours/days and we need to inform
  * the base station.
  */
@@ -49,17 +52,17 @@ void PumpSwitch::_updateElapsedTime() {
     uint32_t remainderMinutes = elapsedMinutes % 60;
     uint32_t remainderSeconds = elapsedSeconds % 60;
 
-    _pumpValues[PUMP_DAYS]    = elapsedDays;
-    _pumpValues[PUMP_HOURS]   = remainderHours;
-    _pumpValues[PUMP_MINUTES] = remainderMinutes;
-    _pumpValues[PUMP_SECONDS] = remainderSeconds;
+    _values[PUMP_VALUES_DAYS]    = elapsedDays;
+    _values[PUMP_VALUES_HOURS]   = remainderHours;
+    _values[PUMP_VALUES_MINUTES] = remainderMinutes;
+    _values[PUMP_VALUES_SECONDS] = remainderSeconds;
 }
 
 /*
  * Public
  */
 
-PumpSwitch::PumpSwitch(int buttonPin, int ledPin, void (*startCallback)(), void (*stopCallback)()) {
+PumpSwitch::PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(), void (*stopCallback)()) {
     Debug.begin();
 
     _debouncer = Bounce(); 
@@ -75,11 +78,11 @@ PumpSwitch::PumpSwitch(int buttonPin, int ledPin, void (*startCallback)(), void 
     _lastStartAttemptTime = 0;
     _startAttemptCount = 0;
 
-    _maxOnMinutes  = PUMP_DEFAULT_MAX_ON_MINUTES;
-    _minOffMinutes = PUMP_DEFAULT_MIN_OFF_MINUTES;
-
     // start with the pump off
     _off();
+
+    // start with default settings
+    _resetSettings();
 }
 
 PumpSwitch::~PumpSwitch() {
@@ -94,35 +97,73 @@ void PumpSwitch::setup() {
 }
 
 bool PumpSwitch::isOn() {
-    return _pumpValues[PUMP_STATE] ? true : false;
+    return _values[PUMP_VALUES_STATE] ? true : false;
 }
 
 bool PumpSwitch::isOff() {
     return !isOn();
 }
 
-uint8_t* PumpSwitch::getPumpValues() {
-    return _pumpValues;
+void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
+    if (PUMP_VALUES_TOTAL != numValues) {
+        dbg("[ERROR] numValues (%u) != PUMP_VALUES_TOTAL (%u)", numValues, PUMP_VALUES_TOTAL);
+        return;
+    }
+
+    if (_values[PUMP_VALUES_STATE] != values[PUMP_VALUES_STATE]) {
+        dbg("New values have a different pump state, updating Pump Switch");
+        // the updated values reflect a different pump state,
+        // update (force) our Pump Switch to match
+        values[PUMP_VALUES_STATE] ? start(true) : stop();
+    }
+
+    // and now copy all the values to match (especially the elapsed times)
+    for (uint8_t i = 0; i < numValues; i++) {
+        _values[i] = values[i];
+    }
 }
 
-uint8_t PumpSwitch::getNumPumpValues() {
-    return PUMP_TOTAL_VALUES;
+uint8_t* PumpSwitch::getValues() {
+    return _values;
 }
 
-int PumpSwitch::getMaxOnMinutes() {
-    return _maxOnMinutes;
+uint8_t PumpSwitch::getNumValues() {
+    return PUMP_VALUES_TOTAL;
 }
 
-int PumpSwitch::getMinOffMinutes() {
-    return _minOffMinutes;
+void PumpSwitch::updateSettings(uint8_t *settings, uint8_t numSettings) {
+    if (PUMP_SETTINGS_TOTAL != numSettings) {
+        dbg("[ERROR] numSettings (%u) != PUMP_SETTINGS_TOTAL (%u)", numSettings, PUMP_SETTINGS_TOTAL);
+        return;
+    }
+
+    for (uint8_t i = 0; i < numSettings; i++) {
+        _settings[i] = settings[i];
+    }
+}
+
+uint8_t* PumpSwitch::getSettings() {
+    return _settings;
+}
+
+uint8_t PumpSwitch::getNumSettings() {
+    return PUMP_SETTINGS_TOTAL;
+}
+
+uint8_t PumpSwitch::getMaxOnMinutes() {
+    return _settings[PUMP_SETTINGS_MAX_ON_MINUTES];
+}
+
+uint8_t PumpSwitch::getMinOffMinutes() {
+    return _settings[PUMP_SETTINGS_MIN_OFF_MINUTES];
 }
 
 uint32_t PumpSwitch::getElapsedSeconds() {
     uint32_t seconds = 0UL;
-    seconds += _pumpValues[PUMP_SECONDS];
-    seconds += _pumpValues[PUMP_MINUTES] * 60UL;
-    seconds +=   _pumpValues[PUMP_HOURS] * 60UL * 60UL;
-    seconds +=    _pumpValues[PUMP_DAYS] * 60UL * 60UL * 24UL;
+    seconds += _values[PUMP_VALUES_SECONDS];
+    seconds += _values[PUMP_VALUES_MINUTES] * 60UL;
+    seconds +=   _values[PUMP_VALUES_HOURS] * 60UL * 60UL;
+    seconds +=    _values[PUMP_VALUES_DAYS] * 60UL * 60UL * 24UL;
 
     return seconds;
 }
@@ -141,11 +182,14 @@ void PumpSwitch::check() {
 
     if (isOn()) {
         uint32_t onMinutes = _msToMinutes(millis() - _time);
-        if (_maxOnMinutes <= onMinutes) {
+        if (getMaxOnMinutes() <= onMinutes) {
+            // ran too long, time to stop the pump
             stop();
         } else {
-            // do nothing
+            // do nothing, let the pump continue running
         }
+    } else {
+        // do nothing, let the pump stay off
     }
 
     // regardless of pump state, always blink/flash
@@ -156,8 +200,8 @@ void PumpSwitch::check() {
  * Start the pump, triggered either by user input (button)
  * or via request from the base station.
  */
-void PumpSwitch::start() {
-    dbg("Starting pump...");
+void PumpSwitch::start(bool force) {
+    dbg("Starting pump for %u minutes", getMaxOnMinutes());
 
     if (isOn()) {
         dbg("Pump is already running for %lumin", _msToMinutes(millis() - _time));
@@ -166,10 +210,8 @@ void PumpSwitch::start() {
     }
 
     // don't start the pump if it hasn't rested long enough
-    // TODO make this configurable with switches on base station, allow base station
-    // to transmit overrides to the default values...
     uint32_t offMinutes = _msToMinutes(millis() - _time);
-    if (_time && _minOffMinutes > offMinutes) {
+    if (_time && getMinOffMinutes() > offMinutes) {
         if (!_lastStartAttemptTime || millis() - _lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
             _startAttemptCount++;
         } else {
@@ -177,8 +219,8 @@ void PumpSwitch::start() {
             _startAttemptCount = 1;
         }
 
-        if (PUMP_MIN_START_ATTEMPTS > _startAttemptCount) {
-            dbg("Pump has only been off %lumin (MINIMUM: %dmin), NOT starting", offMinutes, _minOffMinutes);
+        if (!force && PUMP_MIN_START_ATTEMPTS > _startAttemptCount) {
+            dbg("Pump has only been off %lumin (MINIMUM: %umin), NOT starting", offMinutes, getMinOffMinutes());
             _led.error();
             return;
         } else {
@@ -209,7 +251,7 @@ void PumpSwitch::start() {
  * or via request from the base station.
  */
 void PumpSwitch::stop() {
-    dbg("Stopping pump");
+    dbg("Stopping pump, cannot restart for %u minutes", getMinOffMinutes());
 
     if (isOff()) {
         dbg("Pump was already stopped %lumin ago", _msToMinutes(millis() - _time));

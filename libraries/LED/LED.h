@@ -2,7 +2,7 @@
 #define LED_h
 
 // system
-#include <inttypes.h>
+#include <Arduino.h>
 
 /*
  * Constants

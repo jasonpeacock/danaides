@@ -40,19 +40,20 @@ void PumpSwitch::_off() {
  * the base station.
  */
 void PumpSwitch::_updateElapsedTime() {
-    uint32_t elapsedSeconds = (uint32_t)((millis() - _time) / 1000LU);
-    uint32_t elapsedMinutes = (uint32_t)(elapsedSeconds / 60);
-    uint32_t elapsedHours   = (uint32_t)(elapsedMinutes / 60);
-    uint8_t  elapsedDays    = (uint32_t)(elapsedHours / 24);
+    if (millis() - _time >= 1000UL) {
+        _values[PUMP_VALUES_SECONDS] += (millis() - _time) / 1000;
 
-    uint32_t remainderHours   = elapsedHours % 24;
-    uint32_t remainderMinutes = elapsedMinutes % 60;
-    uint32_t remainderSeconds = elapsedSeconds % 60;
+        _values[PUMP_VALUES_MINUTES] += _values[PUMP_VALUES_SECONDS] / 60;
+        _values[PUMP_VALUES_SECONDS]  = _values[PUMP_VALUES_SECONDS] % 60;
 
-    _values[PUMP_VALUES_DAYS]    = elapsedDays;
-    _values[PUMP_VALUES_HOURS]   = remainderHours;
-    _values[PUMP_VALUES_MINUTES] = remainderMinutes;
-    _values[PUMP_VALUES_SECONDS] = remainderSeconds;
+        _values[PUMP_VALUES_HOURS] += _values[PUMP_VALUES_MINUTES] / 60;
+        _values[PUMP_VALUES_MINUTES]  = _values[PUMP_VALUES_MINUTES] % 60;
+
+        _values[PUMP_VALUES_DAYS] += _values[PUMP_VALUES_HOURS] / 24;
+        _values[PUMP_VALUES_HOURS]  = _values[PUMP_VALUES_HOURS] % 24;
+
+        _time = millis();
+    }
 }
 
 /*
@@ -68,7 +69,7 @@ PumpSwitch::PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(
     _startCallback = startCallback;
     _stopCallback = stopCallback;
 
-    _time = 0;
+    _time = millis();
 
     _lastStartAttemptTime = 0;
     _startAttemptCount = 0;
@@ -117,8 +118,8 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
         _values[i] = values[i];
     }
 
-    // finally, reset the _time to match the update elapsed time
-    _time = getElapsedSeconds() * 1000UL;
+    // then reset the elapsed time counter
+    _time = millis();
 }
 
 uint8_t* PumpSwitch::getValues() {
@@ -166,6 +167,10 @@ uint32_t PumpSwitch::getElapsedSeconds() {
     return seconds;
 }
 
+uint32_t PumpSwitch::getElapsedMinutes() {
+    return getElapsedSeconds() / 60L;
+}
+
 /*
  * Check how long the pump has been running and 
  * stop the pump if it exceeds the limit.
@@ -179,8 +184,7 @@ void PumpSwitch::check() {
     }
 
     if (isOn()) {
-        uint32_t onMinutes = _msToMinutes(millis() - _time);
-        if (getMaxOnMinutes() <= onMinutes) {
+        if (getMaxOnMinutes() <= getElapsedMinutes()) {
             // ran too long, time to stop the pump
             stop();
         } else {
@@ -205,15 +209,14 @@ void PumpSwitch::start(bool force) {
 
     if (isOn()) {
         Serial.print(F("Pump already running for "));
-        Serial.print(_msToMinutes(millis() - _time));
+        Serial.print(getElapsedMinutes());
         Serial.println(F("min"));
         // don't do anything if the pump is already running
         return;
     }
 
     // don't start the pump if it hasn't rested long enough
-    uint32_t offMinutes = _msToMinutes(millis() - _time);
-    if (_time && getMinOffMinutes() > offMinutes) {
+    if (getMinOffMinutes() > getElapsedMinutes()) {
         if (!_lastStartAttemptTime || millis() - _lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
             _startAttemptCount++;
         } else {
@@ -223,7 +226,7 @@ void PumpSwitch::start(bool force) {
 
         if (!force && PUMP_MIN_START_ATTEMPTS > _startAttemptCount) {
             Serial.print(F("Pump only off "));
-            Serial.print(offMinutes);
+            Serial.print(getElapsedMinutes());
             Serial.print(F("min (MINIMUM: "));
             Serial.print(getMinOffMinutes());
             Serial.println(F("min), NOT starting"));
@@ -264,7 +267,7 @@ void PumpSwitch::stop() {
 
     if (isOff()) {
         Serial.print(F("Pump was already stopped "));
-        Serial.print(_msToMinutes(millis() - _time));
+        Serial.print(getElapsedMinutes());
         Serial.println(F("min ago"));
 
         // don't do anything if the pump is already stopped

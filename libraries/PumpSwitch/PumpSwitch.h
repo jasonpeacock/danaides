@@ -83,6 +83,7 @@ class PumpSwitch {
         uint8_t* getValues();
         uint8_t  getNumValues();
         uint32_t getElapsedSeconds();
+        uint32_t getElapsedMinutes();
 
         // configuration settings
         void     updateSettings(uint8_t *settings, uint8_t numSettings);

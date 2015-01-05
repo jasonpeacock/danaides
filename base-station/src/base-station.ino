@@ -245,7 +245,6 @@ void transmit() {
     }
 }
 
-/*
 uint32_t lastStatusTime = 0;
 void displayStatus() {
     if (millis() - lastStatusTime > 15 * 1000UL) {
@@ -277,7 +276,6 @@ void displayStatus() {
         scrollAlphaMessage(message, 1);
     }
 }
-*/
 
 void setup() {
     // hardware serial is used for FTDI debugging
@@ -317,5 +315,5 @@ void loop() {
 
     transmit();
     
-    //displayStatus();
+    displayStatus();
 }

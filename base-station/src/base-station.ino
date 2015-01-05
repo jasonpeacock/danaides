@@ -10,7 +10,6 @@
 
 // third-party
 #include "Adafruit_LEDBackpack.h"
-#include "Dbg.h"
 #include "XBee.h"
 
 // local
@@ -123,12 +122,12 @@ void setupWAN() {
  * Send messages to pump-switch
  */
 void enablePump() {
-    dbg("Pump enabled!");
+    Serial.println(F("Pump enabled!"));
     scrollAlphaMessage("PUMP ENABLED", 1);
 }
 
 void disablePump() {
-    dbg("Pump disabled!");
+    Serial.println(F("Pump disabled!"));
     scrollAlphaMessage("PUMP DISABLED", 1);
 }
 
@@ -143,7 +142,7 @@ void setupAlpha() {
     alpha.writeDisplay();
 }
 
-void scrollAlphaMessage(char* message, uint8_t numScrolls) {
+void scrollAlphaMessage(const char* message, uint8_t numScrolls) {
     uint8_t messageSize = strlen(message); // max 255 chars
     char displayBuffer[4] = {' ', ' ', ' ', ' '};
 
@@ -184,31 +183,38 @@ void receive() {
 
     Data data = Data();
     if (wan.receive(data)) {
-        dbg("Received data...");
+        Serial.println(F("Received data..."));
         Serial.flush();
+
+        freeRam();
 
         uint32_t address = data.getAddress();
         if (wan.isBaseStationAddress(address)) {
-            dbg("New data from Base Station (0x%lX)", address);
+            Serial.println(F("New data from Base Station"));
             // we're the base station, this would be weird
         } else if (wan.isRemoteSensorAddress(address)) {
-            dbg("New data from Remote Sensor (0x%lX)", address);
+            Serial.println(F("New data from Remote Sensor"));
             // TODO update the display
         } else if (wan.isPumpSwitchAddress(address)) {
-            dbg("New data from Pump Switch (0x%lX)", address);
+            Serial.println(F("New data from Pump Switch"));
             if (data.getSize() == pumpSwitch.getNumValues()) {
                 // update the local PumpSwitch object, the remote switch is always
                 // the authority for the values (pump state & elapsed time)
                 pumpSwitch.updateValues(data.getData(), data.getSize());
-                dbg("Updated Pump Switch values");
+                Serial.println(F("Updated Pump Switch values"));
             }
         }
 
         for (uint8_t i = 0; i < data.getSize(); i++) {
-            dbg("%d:\t%d", i, data.getData()[i]);
+            Serial.print(i);
+            Serial.print(F(":\t"));
+            Serial.println(data.getData()[i]);
         }
 
-        dbg("Total receive time: %dms", millis() - lastReceiveTime);
+        freeRam();
+
+        Serial.print(F("Total receive time (ms): "));
+        Serial.println(millis() - lastReceiveTime);
         Serial.flush();
     }
 }
@@ -218,27 +224,66 @@ void transmit() {
     if (!lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         lastTransmitTime = millis();
 
-        dbg("transmitting...");
+        Serial.println(F("transmitting..."));
         Serial.flush();
+
+        freeRam();
 
         Data settings = Data(wan.getPumpSwitchAddress(), pumpSwitch.getSettings(), pumpSwitch.getNumSettings());
         
         if (wan.transmit(&settings)) {
-            dbg("PumpSwitch data sent!");
+            Serial.println(F("PumpSwitch data sent!"));
         } else {
-            dbg("Failed to transmit Pump Switch data");
+            Serial.println(F("Failed to transmit Pump Switch data"));
         }
 
-        dbg("Total transmit time: %dms", millis() - lastTransmitTime);
+        freeRam();
+
+        Serial.print(F("Total transmittime (ms): "));
+        Serial.println(millis() - lastTransmitTime);
         Serial.flush();
     }
 }
 
+/*
+uint32_t lastStatusTime = 0;
+void displayStatus() {
+    if (millis() - lastStatusTime > 15 * 1000UL) {
+        lastStatusTime = millis();
+        scrollAlphaMessage("PUMP STATUS", 1);
+
+        char state[4];
+        if (pumpSwitch.isOn()) {
+            snprintf(state, 4, "ON");
+        } else {
+            snprintf(state, 4, "OFF");
+        }
+
+        char duration_1[15];
+        char duration_2[15];
+        if (pumpSwitch.getValues()[PUMP_VALUES_DAYS]) {
+            snprintf(duration_1, 15, "%u DAYS", pumpSwitch.getValues()[PUMP_VALUES_DAYS]);
+            snprintf(duration_2, 15, "%u HOURS", pumpSwitch.getValues()[PUMP_VALUES_HOURS]);
+        } else if (pumpSwitch.getValues()[PUMP_VALUES_HOURS]) {
+            snprintf(duration_1, 15, "%u HOURS", pumpSwitch.getValues()[PUMP_VALUES_HOURS]);
+            snprintf(duration_2, 15, "%u MINUTES", pumpSwitch.getValues()[PUMP_VALUES_MINUTES]);
+        } else {
+            snprintf(duration_1, 15, "%u MINUTES", pumpSwitch.getValues()[PUMP_VALUES_MINUTES]);
+            snprintf(duration_2, 15, "%u SECONDS", pumpSwitch.getValues()[PUMP_VALUES_SECONDS]);
+        }
+
+        char message[100];
+        snprintf(message, 100, "%s %s %s", state, duration_1, duration_2);
+        scrollAlphaMessage(message, 1);
+    }
+}
+*/
+
 void setup() {
     // hardware serial is used for FTDI debugging
-    Debug.begin();
+    Serial.begin(9600);
 
-    dbg("setup() start..");
+    Serial.println(F("setup() start.."));
 
     setupUnusedPins();
 
@@ -250,9 +295,9 @@ void setup() {
 
     setupWAN();
 
-    dbg("setup() completed!");
+    Serial.println(F("setup() completed!"));
 
-    dbg("Performing initial update & transmit");
+    Serial.println(F("Performing initial update & transmit"));
 
     // TODO transmit any initial values
 
@@ -260,7 +305,9 @@ void setup() {
     scrollAlphaMessage("HELLO", 1);
 
     // play a sound
-    playSetupMelody();
+    //playSetupMelody();
+
+    freeRam();
 }
 
 void loop() {
@@ -269,4 +316,6 @@ void loop() {
     receive();
 
     transmit();
+    
+    //displayStatus();
 }

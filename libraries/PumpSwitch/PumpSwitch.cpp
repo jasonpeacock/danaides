@@ -1,6 +1,3 @@
-// third-party
-#include "Dbg.h"
-
 // local
 #include "PumpSwitch.h"
 
@@ -63,8 +60,6 @@ void PumpSwitch::_updateElapsedTime() {
  */
 
 PumpSwitch::PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(), void (*stopCallback)()) {
-    Debug.begin();
-
     _debouncer = Bounce(); 
     _buttonPin = buttonPin;
 
@@ -106,12 +101,12 @@ bool PumpSwitch::isOff() {
 
 void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
     if (PUMP_VALUES_TOTAL != numValues) {
-        dbg("[ERROR] numValues (%u) != PUMP_VALUES_TOTAL (%u)", numValues, PUMP_VALUES_TOTAL);
+        Serial.println(F("[ERROR] updateValues: PUMP_VALUES_TOTAL != numValues"));
         return;
     }
 
     if (_values[PUMP_VALUES_STATE] != values[PUMP_VALUES_STATE]) {
-        dbg("New values have a different pump state, updating Pump Switch");
+        Serial.println(F("New values have a different pump state, updating Pump Switch"));
         // the updated values reflect a different pump state,
         // update (force) our Pump Switch to match
         values[PUMP_VALUES_STATE] ? start(true) : stop();
@@ -121,6 +116,9 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
     for (uint8_t i = 0; i < numValues; i++) {
         _values[i] = values[i];
     }
+
+    // finally, reset the _time to match the update elapsed time
+    _time = getElapsedSeconds() * 1000UL;
 }
 
 uint8_t* PumpSwitch::getValues() {
@@ -133,7 +131,7 @@ uint8_t PumpSwitch::getNumValues() {
 
 void PumpSwitch::updateSettings(uint8_t *settings, uint8_t numSettings) {
     if (PUMP_SETTINGS_TOTAL != numSettings) {
-        dbg("[ERROR] numSettings (%u) != PUMP_SETTINGS_TOTAL (%u)", numSettings, PUMP_SETTINGS_TOTAL);
+        Serial.println(F("[ERROR] updateSettings: numSettings != PUMP_SETTINGS_TOTAL"));
         return;
     }
 
@@ -201,10 +199,14 @@ void PumpSwitch::check() {
  * or via request from the base station.
  */
 void PumpSwitch::start(bool force) {
-    dbg("Starting pump for %u minutes", getMaxOnMinutes());
+    Serial.print(F("Starting pump for "));
+    Serial.print(getMaxOnMinutes());
+    Serial.println(F("min"));
 
     if (isOn()) {
-        dbg("Pump is already running for %lumin", _msToMinutes(millis() - _time));
+        Serial.print(F("Pump already running for "));
+        Serial.print(_msToMinutes(millis() - _time));
+        Serial.println(F("min"));
         // don't do anything if the pump is already running
         return;
     }
@@ -220,11 +222,16 @@ void PumpSwitch::start(bool force) {
         }
 
         if (!force && PUMP_MIN_START_ATTEMPTS > _startAttemptCount) {
-            dbg("Pump has only been off %lumin (MINIMUM: %umin), NOT starting", offMinutes, getMinOffMinutes());
+            Serial.print(F("Pump only off "));
+            Serial.print(offMinutes);
+            Serial.print(F("min (MINIMUM: "));
+            Serial.print(getMinOffMinutes());
+            Serial.println(F("min), NOT starting"));
+
             _led.error();
             return;
         } else {
-            dbg("Pump override enabled!");
+            Serial.println(F("Pump override enabled!"));
 
             // reset the attempt counter/time
             _lastStartAttemptTime = 0;
@@ -243,7 +250,7 @@ void PumpSwitch::start(bool force) {
     // actually start the pump!
     (*_startCallback)();
 
-    dbg("Pump started");
+    Serial.println(F("Pump started"));
 }
 
 /*
@@ -251,10 +258,15 @@ void PumpSwitch::start(bool force) {
  * or via request from the base station.
  */
 void PumpSwitch::stop() {
-    dbg("Stopping pump, cannot restart for %u minutes", getMinOffMinutes());
+    Serial.print(F("Stopping pump, cannot restart for "));
+    Serial.print(getMinOffMinutes());
+    Serial.println(F("min"));
 
     if (isOff()) {
-        dbg("Pump was already stopped %lumin ago", _msToMinutes(millis() - _time));
+        Serial.print(F("Pump was already stopped "));
+        Serial.print(_msToMinutes(millis() - _time));
+        Serial.println(F("min ago"));
+
         // don't do anything if the pump is already stopped
         return;
     }
@@ -270,6 +282,6 @@ void PumpSwitch::stop() {
     // actually stop the pump!
     (*_stopCallback)();
 
-    dbg("Pump stopped");
+    Serial.println(F("Pump stopped"));
 }
 

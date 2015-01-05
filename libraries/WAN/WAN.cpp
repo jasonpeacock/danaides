@@ -1,9 +1,6 @@
 // system
 #include <inttypes.h>
 
-// third-party
-#include "Dbg.h"
-
 // local
 #include "WAN.h"
 
@@ -37,7 +34,6 @@ WAN::~WAN() {
 }
 
 void WAN::setup() {
-    Debug.begin();
     _statusLed.setup();
 }
 
@@ -58,15 +54,17 @@ bool WAN::receive(Data &data) {
             _xbee.getResponse().getZBTxStatusResponse(_zbTxStatus);
 
             if (SUCCESS == _zbTxStatus.getDeliveryStatus()) {
-                dbg("Delivery Success!");
+                Serial.println(F("Delivery Success!"));
             } else {
-                dbg("Delivery Failure :(");
+                Serial.println(F("Delivery Failure :("));
             }
         } else {
-            dbg("UNEXPECTED RESPONSE: %d", _xbee.getResponse().getApiId());
+            Serial.print(F("UNEXPECTED RESPONSE: "));
+            Serial.println(_xbee.getResponse().getApiId());
         }
     } else if (_xbee.getResponse().isError()) {
-        dbg("Error reading packet. Error code: %d", _xbee.getResponse().getErrorCode());
+        Serial.print(F("Error reading packet. Error code: "));
+        Serial.println(_xbee.getResponse().getErrorCode());
     }
 
     return received;
@@ -76,9 +74,10 @@ bool WAN::transmit(Data *data) {
     XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, data->getAddress());
     ZBTxRequest zbTx = ZBTxRequest(addr64, data->getData(), data->getSize());
     
-    dbg("Sending %u values to 0x%lX", data->getSize(), data->getAddress());
-
     _xbee.send(zbTx);
+
+    // fire, but don't forget - the next receive() call will handle the txResponse
+    //  and log it..
 
     return true;
 }

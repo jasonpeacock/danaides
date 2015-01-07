@@ -67,6 +67,8 @@ bool WAN::receive(Data &data) {
         Serial.println(_xbee.getResponse().getErrorCode());
     }
 
+    Serial.flush();
+
     return received;
 }
 

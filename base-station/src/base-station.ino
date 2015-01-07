@@ -10,7 +10,6 @@
 
 // third-party
 #include "Adafruit_LEDBackpack.h"
-#include "XBee.h"
 
 // local
 #include "Danaides.h"
@@ -98,9 +97,6 @@ void playSetupMelody() {
  * XBee
  */ 
 
-// how often to transmit values to pump switch
-#define TRANSMIT_INTERVAL_SECONDS 60
-
 // XBee will use SoftwareSerial for communications, reserve the HardwareSerial
 // for debugging w/FTDI interface.
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
@@ -116,19 +112,6 @@ void setupWAN() {
     ss.begin(9600);
 
     wan.setup();
-}
-
-/*
- * Send messages to pump-switch
- */
-void enablePump() {
-    Serial.println(F("Pump enabled!"));
-    scrollAlphaMessage("PUMP ENABLED", 1);
-}
-
-void disablePump() {
-    Serial.println(F("Pump disabled!"));
-    scrollAlphaMessage("PUMP DISABLED", 1);
 }
 
 /*
@@ -178,6 +161,20 @@ void scrollAlphaMessage(const char* message, uint8_t numScrolls) {
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
+void enablePump() {
+    Serial.println(F("Pump enabled!"));
+    // send the current (updated) pump values
+    transmit();
+    scrollAlphaMessage("PUMP ENABLED", 1);
+}
+
+void disablePump() {
+    Serial.println(F("Pump disabled!"));
+    // send the current (updated) pump values
+    transmit();
+    scrollAlphaMessage("PUMP DISABLED", 1);
+}
+
 void receive() {
     uint32_t lastReceiveTime = millis();
 
@@ -188,20 +185,24 @@ void receive() {
 
         freeRam();
 
-        uint32_t address = data.getAddress();
-        if (wan.isBaseStationAddress(address)) {
+        if (wan.isBaseStationAddress(data.getAddress())) {
             Serial.println(F("New data from Base Station"));
             // we're the base station, this would be weird
-        } else if (wan.isRemoteSensorAddress(address)) {
+        } else if (wan.isRemoteSensorAddress(data.getAddress())) {
             Serial.println(F("New data from Remote Sensor"));
             // TODO update the display
-        } else if (wan.isPumpSwitchAddress(address)) {
+        } else if (wan.isPumpSwitchAddress(data.getAddress())) {
             Serial.println(F("New data from Pump Switch"));
             if (data.getSize() == pumpSwitch.getNumValues()) {
                 // update the local PumpSwitch object, the remote switch is always
-                // the authority for the values (pump state & elapsed time)
-                pumpSwitch.updateValues(data.getData(), data.getSize());
-                Serial.println(F("Updated Pump Switch values"));
+                // the authority for the values & settings
+                if (PUMP_SETTINGS_TOTAL == data.getSize()) {
+                    pumpSwitch.updateSettings(data.getData(), data.getSize());
+                    Serial.println(F("Updated Pump Switch settings"));
+                } else if (PUMP_VALUES_TOTAL == data.getSize()) {
+                    pumpSwitch.updateValues(data.getData(), data.getSize());
+                    Serial.println(F("Updated Pump Switch values"));
+                }
             }
         }
 
@@ -219,30 +220,27 @@ void receive() {
     }
 }
 
-uint32_t lastTransmitTime = 0;
 void transmit() {
-    if (!lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
-        lastTransmitTime = millis();
+    uint32_t start = millis();
 
-        Serial.println(F("transmitting..."));
-        Serial.flush();
+    Serial.println(F("transmitting..."));
+    Serial.flush();
 
-        freeRam();
+    freeRam();
 
-        Data settings = Data(wan.getPumpSwitchAddress(), pumpSwitch.getSettings(), pumpSwitch.getNumSettings());
-        
-        if (wan.transmit(&settings)) {
-            Serial.println(F("PumpSwitch data sent!"));
-        } else {
-            Serial.println(F("Failed to transmit Pump Switch data"));
-        }
-
-        freeRam();
-
-        Serial.print(F("Total transmittime (ms): "));
-        Serial.println(millis() - lastTransmitTime);
-        Serial.flush();
+    Data values = Data(wan.getPumpSwitchAddress(), pumpSwitch.getValues(), pumpSwitch.getNumValues());
+    
+    if (wan.transmit(&values)) {
+        Serial.println(F("PumpSwitch data sent!"));
+    } else {
+        Serial.println(F("Failed to transmit Pump Switch data"));
     }
+
+    freeRam();
+
+    Serial.print(F("Total transmit time (ms): "));
+    Serial.println(millis() - start);
+    Serial.flush();
 }
 
 uint32_t lastStatusTime = 0;
@@ -257,6 +255,7 @@ void displayStatus() {
         } else {
             snprintf(state, 4, "OFF");
         }
+        scrollAlphaMessage(state, 1);
 
         char duration_1[15];
         char duration_2[15];
@@ -272,7 +271,7 @@ void displayStatus() {
         }
 
         char message[100];
-        snprintf(message, 100, "%s %s %s", state, duration_1, duration_2);
+        snprintf(message, 100, "%s %s", duration_1, duration_2);
         scrollAlphaMessage(message, 1);
     }
 }
@@ -313,7 +312,5 @@ void loop() {
     
     receive();
 
-    transmit();
-    
     displayStatus();
 }

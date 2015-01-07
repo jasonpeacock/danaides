@@ -19,8 +19,10 @@ void PumpSwitch::_resetValues(bool running) {
 }
 
 void PumpSwitch::_resetSettings() {
-    _settings[PUMP_SETTINGS_MAX_ON_MINUTES]  = PUMP_DEFAULT_MAX_ON_MINUTES;
-    _settings[PUMP_SETTINGS_MIN_OFF_MINUTES] = PUMP_DEFAULT_MIN_OFF_MINUTES;
+    _settings[PUMP_SETTINGS_ON_DELAY_MINUTES] = PUMP_DEFAULT_ON_DELAY_MINUTES;
+    _settings[PUMP_SETTINGS_MAX_ON_MINUTES]   = PUMP_DEFAULT_MAX_ON_MINUTES;
+    _settings[PUMP_SETTINGS_MIN_ON_MINUTES]   = PUMP_DEFAULT_MIN_ON_MINUTES;
+    _settings[PUMP_SETTINGS_MIN_OFF_MINUTES]  = PUMP_DEFAULT_MIN_OFF_MINUTES;
 }
 
 void PumpSwitch::_on() {
@@ -149,8 +151,16 @@ uint8_t PumpSwitch::getNumSettings() {
     return PUMP_SETTINGS_TOTAL;
 }
 
+uint8_t PumpSwitch::getOnDelayMinutes() {
+    return _settings[PUMP_SETTINGS_ON_DELAY_MINUTES];
+}
+
 uint8_t PumpSwitch::getMaxOnMinutes() {
     return _settings[PUMP_SETTINGS_MAX_ON_MINUTES];
+}
+
+uint8_t PumpSwitch::getMinOnMinutes() {
+    return _settings[PUMP_SETTINGS_MIN_ON_MINUTES];
 }
 
 uint8_t PumpSwitch::getMinOffMinutes() {

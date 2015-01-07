@@ -9,27 +9,21 @@
  * 
  */
 
+// system
 #include <SoftwareSerial.h>
 
+// third-party
 #include "Adafruit_LEDBackpack.h"
-#include "Dbg.h"
-#include "XBee.h"
 
+// local
 #include "Danaides.h"
-#include "PumpSwitch.h"
 #include "LED.h"
+#include "PumpSwitch.h"
+#include "WAN.h"
 
 /*
  * Constants
  */
-
-// how often to transmit values
-#define TRANSMIT_INTERVAL_SECONDS 60
-
-// enable debug output
-// 1 == ON
-// 0 == OFF
-#define DEBUG_ENABLED 1
 
 /*
  * Pins
@@ -72,32 +66,26 @@ void setupUnusedPins() {
 /*
  * XBee
  */ 
-XBee xbee = XBee();
 
-XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
-
-ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+// how often to transmit values
+// TODO update with proper value...
+#define TRANSMIT_INTERVAL_SECONDS 10
 
 // XBee will use SoftwareSerial for communications, reserve the HardwareSerial
 // for debugging w/FTDI interface.
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 
-uint32_t lastTransmitTime = 0;
-
 LED statusLed = LED(STATUS_LED);
 
-void setupXBee() {
-    dbg("Setting up XBee...");
+WAN wan = WAN(ss, statusLed);
 
+void setupWAN() {
     // software serial is used for XBee communications
     pinMode(SS_RX_PIN, INPUT);
     pinMode(SS_TX_PIN, OUTPUT);
     ss.begin(9600);
-    xbee.setSerial(ss);
 
-    statusLed.setup();
-
-    dbg("Completed XBee setup");
+    wan.setup();
 }
 
 /*
@@ -112,6 +100,96 @@ void setupCounter() {
 }
 
 /*
+ * Pump Switch (MAIN)
+ */
+PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
+
+void receive() {
+    uint32_t lastReceiveTime = millis();
+
+    Data data = Data();
+    if (wan.receive(data)) {
+        Serial.println(F("Received data..."));
+        Serial.flush();
+
+        freeRam();
+
+        if (wan.isBaseStationAddress(data.getAddress())) {
+            Serial.println(F("New data from Base Station"));
+            if (data.getSize() == pumpSwitch.getNumValues()) {
+                // update the local PumpSwitch object, the base station may have
+                // enabled/disabled the pump
+                pumpSwitch.updateValues(data.getData(), data.getSize());
+                Serial.println(F("Updated Pump Switch values"));
+            }
+        } else if (wan.isRemoteSensorAddress(data.getAddress())) {
+            Serial.println(F("New data from Remote Sensor"));
+            // nothing to do
+        } else if (wan.isPumpSwitchAddress(data.getAddress())) {
+            Serial.println(F("New data from Pump Switch"));
+            // we're the pump switch, this would be weird
+        }
+
+        for (uint8_t i = 0; i < data.getSize(); i++) {
+            Serial.print(i);
+            Serial.print(F(":\t"));
+            Serial.println(data.getData()[i]);
+        }
+
+        freeRam();
+
+        Serial.print(F("Total receive time (ms): "));
+        Serial.println(millis() - lastReceiveTime);
+        Serial.flush();
+    }
+}
+
+/*
+ * Transmit Values & Settings to the base station.
+ */
+uint32_t lastTransmitTime = 0;
+bool lastTransmitSettings = false;
+void transmit(bool forceValues = false) {
+    if (forceValues || !lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
+        lastTransmitTime = millis();
+
+        Serial.println(F("transmitting..."));
+        Serial.flush();
+
+        freeRam();
+
+        // alternate between sending the values & sending the settings,
+        // don't send them back-to-back b/c base-station may not process
+        // the incoming messages fast enough.
+        if (forceValues || lastTransmitSettings) {
+            lastTransmitSettings = false;
+
+            Data values = Data(wan.getBaseStationAddress(), pumpSwitch.getValues(), pumpSwitch.getNumValues());
+            if (wan.transmit(&values)) {
+                Serial.println(F("PumpSwitch values sent!"));
+            } else {
+                Serial.println(F("Failed to transmit values"));
+            }
+        } else {
+            lastTransmitSettings = true;
+
+            Data settings = Data(wan.getBaseStationAddress(), pumpSwitch.getSettings(), pumpSwitch.getNumSettings());
+            if (wan.transmit(&settings)) {
+                Serial.println(F("PumpSwitch settings sent!"));
+            } else {
+                Serial.println(F("Failed to transmit settings"));
+            }
+        }
+
+        freeRam();
+
+        Serial.print(F("Total transmit time (ms): "));
+        Serial.println(millis() - lastTransmitTime);
+        Serial.flush();
+    }
+}
+
+/*
  * Pump Relay
  */
 void setupRelay() {
@@ -121,16 +199,15 @@ void setupRelay() {
 
 void enableRelay() {
     digitalWrite(PUMP_RELAY_PIN, HIGH);
+    // send the current (updated) pump values
+    transmit(true);
 }
 
 void disableRelay() {
     digitalWrite(PUMP_RELAY_PIN, LOW);
+    // send the current (updated) pump values
+    transmit(true);
 }
-
-/*
- * Pump Switch (MAIN)
- */
-PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
 
 /*
  * Calculate the remaining time since the pump started, then update 
@@ -180,56 +257,11 @@ void updateCounter() {
     counter.writeDisplay();
 }
 
-/*
- * Receive pumpValues from the base station
- */
-void receivePumpSettings() {
-    // TODO receive data from XBee radio
-}
-
-/*
- * Transmit pumpValues to the base station.
- */
-void transmitPumpValues() {
-    if (!lastTransmitTime || millis() - lastTransmitTime >= TRANSMIT_INTERVAL_SECONDS * 1000UL) {
-        dbg("Sending data...");
-        lastTransmitTime = millis();
-
-        
-        ZBTxRequest zbTx = ZBTxRequest(addr64, pumpSwitch.getPumpValues(), pumpSwitch.getNumPumpValues());
-        xbee.send(zbTx);
-
-        dbg("Data sent...");
-        statusLed.flash(1, 100);
-
-        if (xbee.readPacket(XBEE_STATUS_WAIT_MS)) {
-            if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
-                xbee.getResponse().getZBTxStatusResponse(txStatus);
-
-                if (SUCCESS == txStatus.getDeliveryStatus()) {
-                    dbg("Success!");
-                    statusLed.flash(5, 50);
-                } else {
-                    dbg("Failure :(");
-                    statusLed.flash(3, 500);
-                }
-            }
-        } else if (xbee.getResponse().isError()) {
-            dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
-        } else {
-            dbg("Local XBee didn't provide a timely TX status response (should not happen)");
-            statusLed.flash(2, 50);
-        }
-
-        dbg("Total transmit time: %lums", millis() - lastTransmitTime);
-    }
-}
-
 void setup() {
     // hardware serial is used for FTDI debugging
-    Debug.begin();
+    Serial.begin(9600);
 
-    dbg("setup() start..");
+    Serial.println(F("setup() start.."));
 
     setupUnusedPins();
 
@@ -239,9 +271,9 @@ void setup() {
 
     setupCounter();
 
-    setupXBee();
+    setupWAN();
 
-    dbg("setup() completed!");
+    Serial.println(F("setup() completed!"));
 }
 
 void loop() {
@@ -249,6 +281,8 @@ void loop() {
 
     updateCounter();
 
-    transmitPumpValues();
+    receive();
+
+    transmit();
 }
 

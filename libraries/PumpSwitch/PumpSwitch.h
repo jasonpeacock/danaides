@@ -16,8 +16,10 @@
  */
 
 //XXX adjust these to actual values (60min each)
-#define PUMP_DEFAULT_MAX_ON_MINUTES  2
-#define PUMP_DEFAULT_MIN_OFF_MINUTES 2
+#define PUMP_DEFAULT_ON_DELAY_MINUTES 1
+#define PUMP_DEFAULT_MAX_ON_MINUTES   2
+#define PUMP_DEFAULT_MIN_ON_MINUTES   1
+#define PUMP_DEFAULT_MIN_OFF_MINUTES  2
 
 #define PUMP_START_ATTEMPTS_WINDOW_SECONDS 60
 #define PUMP_MIN_START_ATTEMPTS 3
@@ -36,10 +38,12 @@
 #define PUMP_VALUES_TOTAL 5
 
 // pump switch configurable data
-#define PUMP_SETTINGS_MAX_ON_MINUTES  0
-#define PUMP_SETTINGS_MIN_OFF_MINUTES 1
+#define PUMP_SETTINGS_ON_DELAY_MINUTES 0
+#define PUMP_SETTINGS_MAX_ON_MINUTES   1
+#define PUMP_SETTINGS_MIN_ON_MINUTES   2
+#define PUMP_SETTINGS_MIN_OFF_MINUTES  3
 
-#define PUMP_SETTINGS_TOTAL 2
+#define PUMP_SETTINGS_TOTAL 4
 
 class PumpSwitch {
     private:
@@ -89,9 +93,10 @@ class PumpSwitch {
         void     updateSettings(uint8_t *settings, uint8_t numSettings);
         uint8_t* getSettings();
         uint8_t  getNumSettings();
+        uint8_t  getOnDelayMinutes();
         uint8_t  getMaxOnMinutes();
+        uint8_t  getMinOnMinutes();
         uint8_t  getMinOffMinutes();
-
 
         void check();
         void start(bool force = false);

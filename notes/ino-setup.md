@@ -33,3 +33,23 @@ Because that's where Ino will look to find build support.
     The `serial-port` value was found using the Arduino IDE to list the available Serial Ports. The `/dev/tty.usbserial-...` value didn't work, I assume that's for talking to the actual FTDI friend interface, while the `/dev/cu.usbserial-...` value is for pass-thru to talk with the Pro Trinket board.
 
 3. A separate `ino.ini` file can be created for each project directory if needed (because using different boards, or different serial ports).
+
+# Reporting memory size of builds
+
+The Trinket Pro (and Arduino Uno) only have 2k of RAM, and ~28k of flash. If there is not enough memory then bad things will happen. Do a static (good-enough) analysis of the build to see how much memory is being used:
+
+From within a project directory, run the following:
+
+`ino build && /Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin/avr-size .build/protrinket5ftdi/firmware.elf`
+
+The output will be similar to:
+
+     text     data     bss     dec     hex filename
+    17794      172     713   18679    48f7 .build/protrinket5ftdi/firmware.elf
+
+Where the application (flash) usage is `text` and the memory (SRAM) usage is `data + bss`.
+
+## How to save memory
+
+Don't use `Dbg`, alas. It is very nice and convenient, but it also doesn't support the F() macro which stores string literals (`"foo bar"`) in flash instead of SRAM. This is a huge savings, all print statements should be composed by doing `Serial.println(F("foo bar));` to avoid wasting SRAM.
+

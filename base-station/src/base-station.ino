@@ -190,7 +190,17 @@ void receive() {
             // we're the base station, this would be weird
         } else if (wan.isRemoteSensorAddress(data.getAddress())) {
             Serial.println(F("New data from Remote Sensor"));
+            if (data.getSize() == SENSOR_TOTAL_INPUTS) {
+                for (uint8_t i = 0; i < data.getSize(); i++) {
+                    sensorValues[i] = data.getData()[i];
+                }
+
+                // invert the value so that its ON/OFF state is correct
+                sensorValues[TANK_1_INVERTED_FLOAT] = sensorValues[TANK_1_INVERTED_FLOAT] ? 0 : 1;
+            }
+
             // TODO update the display
+
         } else if (wan.isPumpSwitchAddress(data.getAddress())) {
             Serial.println(F("New data from Pump Switch"));
             if (data.getSize() == pumpSwitch.getNumValues()) {

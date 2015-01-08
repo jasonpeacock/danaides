@@ -148,7 +148,7 @@ void receive() {
  * Transmit Values & Settings to the base station.
  */
 uint32_t lastTransmitTime = 0;
-bool lastTransmitSettings = false;
+bool lastTransmittedSettings = false;
 void transmit(bool forceValues = false) {
     if (forceValues || !lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         lastTransmitTime = millis();
@@ -161,8 +161,8 @@ void transmit(bool forceValues = false) {
         // alternate between sending the values & sending the settings,
         // don't send them back-to-back b/c base-station may not process
         // the incoming messages fast enough.
-        if (forceValues || lastTransmitSettings) {
-            lastTransmitSettings = false;
+        if (forceValues || lastTransmittedSettings) {
+            lastTransmittedSettings = false;
 
             Data values = Data(wan.getBaseStationAddress(), pumpSwitch.getValues(), pumpSwitch.getNumValues());
             if (wan.transmit(&values)) {
@@ -171,7 +171,7 @@ void transmit(bool forceValues = false) {
                 Serial.println(F("Failed to transmit values"));
             }
         } else {
-            lastTransmitSettings = true;
+            lastTransmittedSettings = true;
 
             Data settings = Data(wan.getBaseStationAddress(), pumpSwitch.getSettings(), pumpSwitch.getNumSettings());
             if (wan.transmit(&settings)) {

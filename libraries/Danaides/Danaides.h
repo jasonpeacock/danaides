@@ -14,7 +14,6 @@ void freeRam () {
  * Remote Sensor Values
  */
 
-// outgoing
 #define TANK_1_FLOAT_0  0
 #define TANK_1_FLOAT_1  1
 #define TANK_1_FLOAT_2  2
@@ -47,15 +46,14 @@ void freeRam () {
 #define VALVE_POSITION_4 22
 #define VALVE_POSITION_5 23
 
-#define FLOW_OUT_BACK    24
-#define FLOW_OUT_FRONT   25
-#define FLOW_IN          26
-
-#define UNUSED_INPUT_1   27
-#define UNUSED_INPUT_2   28
-#define UNUSED_INPUT_3   29
-#define UNUSED_INPUT_4   30 
-#define UNUSED_INPUT_5   31 
+#define UNUSED_INPUT_1   24
+#define UNUSED_INPUT_2   25
+#define UNUSED_INPUT_3   26
+#define UNUSED_INPUT_4   27
+#define UNUSED_INPUT_5   28
+#define UNUSED_INPUT_6   29
+#define UNUSED_INPUT_7   30 
+#define UNUSED_INPUT_8   31 
 
 // how many sensors are available
 // (not how many are actually used)

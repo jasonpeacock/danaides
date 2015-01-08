@@ -1,6 +1,9 @@
 #ifndef InputShiftRegister_h
 #define InputShiftRegister_h
 
+// system
+#include <Arduino.h>
+
 /*
  * Constants
  */
@@ -10,17 +13,15 @@
 
 class InputShiftRegister {
     private:
-        int _numInputs; // total number of shift register inputs, should
-                        // be a multiple of 8.
-        int _plPin;     // Parallel Load pin
-        int _cePin;     // Clock Enable pin
-        int _cpPin;     // Clock Pulse pin
-        int _q7Pin;     // Serial Out (Q7) pin
-
-        int* _values;   // values to be read from the shift register
+        uint8_t _numInputs; // total number of shift register inputs, should
+                            // be a multiple of 8 and <255
+        uint8_t _plPin;     // Parallel Load pin
+        uint8_t _cePin;     // Clock Enable pin
+        uint8_t _cpPin;     // Clock Pulse pin
+        uint8_t _q7Pin;     // Serial Out (Q7) pin
 
     public:
-        InputShiftRegister(int numInputs, int plPin, int cePin, int cpPin, int q7Pin);
+        InputShiftRegister(uint8_t numInputs, uint8_t plPin, uint8_t cePin, uint8_t cpPin, uint8_t q7Pin);
         ~InputShiftRegister();
 
         // to be called during setup() in main Arduino sketch,
@@ -28,10 +29,10 @@ class InputShiftRegister {
         void setup();
 
         // retrieve all the digital input values
-        int* getValues();
+        bool getValues(uint8_t* values);
 
         // how many inputs do we think we have?
-        int getNumInputs();
+        uint8_t getNumInputs();
 };
 
 #endif //InputShiftRegister_h

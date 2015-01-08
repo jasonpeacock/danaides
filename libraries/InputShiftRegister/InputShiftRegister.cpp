@@ -1,23 +1,22 @@
+// system
 #include <Arduino.h>
 
-#include "Dbg.h"
-
+// local
 #include "InputShiftRegister.h"
 
-InputShiftRegister::InputShiftRegister(int numInputs, int plPin, int cePin, int cpPin, int q7Pin) {
-    Debug.begin();
-
+InputShiftRegister::InputShiftRegister(uint8_t numInputs, 
+                                       uint8_t plPin, 
+                                       uint8_t cePin, 
+                                       uint8_t cpPin, 
+                                       uint8_t q7Pin) {
     _numInputs = numInputs;
     _plPin = plPin;
     _cePin = cePin;
     _cpPin = cpPin;
     _q7Pin = q7Pin;
-
-    _values = new int[_numInputs];
 }
 
 InputShiftRegister::~InputShiftRegister() {
-    delete _values;
 }
 
 void InputShiftRegister::setup() {
@@ -31,7 +30,7 @@ void InputShiftRegister::setup() {
     digitalWrite(_plPin, HIGH);
 }
 
-int* InputShiftRegister::getValues() {
+bool InputShiftRegister::getValues(uint8_t *values) {
     // 1. disable the clock to prevent reading
     // 2. read the inputs w/parallel load, pausing
     //    long enough to capture all the values
@@ -42,8 +41,14 @@ int* InputShiftRegister::getValues() {
     digitalWrite(_plPin, HIGH);
     digitalWrite(_cePin, LOW);
 
-    for (int i = (_numInputs - 1); i >= 0; i--) {
-        _values[i] = digitalRead(_q7Pin);
+    bool changed = false;
+    for (uint8_t i = 0; i < _numInputs ; i++) {
+        uint8_t newValue = digitalRead(_q7Pin); 
+        if (values[_numInputs - i - 1] != newValue) {
+            changed = true;
+        }
+
+        values[_numInputs - i - 1] = newValue;
 
         // pulse the clock to load the next input value
         digitalWrite(_cpPin, HIGH);
@@ -51,10 +56,10 @@ int* InputShiftRegister::getValues() {
         digitalWrite(_cpPin, LOW);
     }
 
-    return _values;
+    return changed;
 }
 
-int InputShiftRegister::getNumInputs() {
+uint8_t InputShiftRegister::getNumInputs() {
     return _numInputs;
 }
 

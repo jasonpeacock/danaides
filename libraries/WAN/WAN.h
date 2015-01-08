@@ -28,12 +28,30 @@ class WAN {
 
         void _init(Stream &serial);
 
+        // With Sleep Mode = 1 (Pin), setting DTR
+        // high will sleep the XBee.
+        uint8_t _dtrPin;
+
+        // CTS is used to determine when XBee is ready to transmit
+        // after waking from sleep.
+        uint8_t _ctsPin;
+
+        bool _sleepEnabled;
+
+        // this is managed automatically, doesn't need to be public
+        void _sleep();
+        void _wake();
+
     public:
         WAN(Stream &serial);
         WAN(Stream &serial, LED statusLed);
         ~WAN();
 
         void setup();
+
+        // will sleep the XBee when not receiving/transmitting
+        void enableSleep(uint8_t dtrPin, uint8_t ctsPin);
+        void disableSleep();
 
         bool receive(Data &data);
         bool transmit(Data *data);

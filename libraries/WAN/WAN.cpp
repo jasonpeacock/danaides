@@ -1,5 +1,5 @@
 // system
-#include <inttypes.h>
+#include <Arduino.h>
 
 // local
 #include "WAN.h"
@@ -19,14 +19,20 @@ void WAN::_init(Stream &serial) {
 WAN::WAN(Stream &serial) : _xbee(XBee()), 
                            _zbRx(ZBRxResponse()), 
                            _zbTxStatus(ZBTxStatusResponse()),
-                           _statusLed(LED(0)) {
+                           _statusLed(LED(0)),
+                           _dtrPin(0),
+                           _ctsPin(0),
+                           _sleepEnabled(false) {
     _init(serial);
 }
 
 WAN::WAN(Stream &serial, LED statusLed) : _xbee(XBee()), 
                                           _zbRx(ZBRxResponse()), 
                                           _zbTxStatus(ZBTxStatusResponse()),
-                                          _statusLed(statusLed) {
+                                          _statusLed(statusLed),
+                                          _dtrPin(0),
+                                          _ctsPin(0),
+                                          _sleepEnabled(false) {
     _init(serial);
 }
 
@@ -37,7 +43,58 @@ void WAN::setup() {
     _statusLed.setup();
 }
 
+void WAN::enableSleep(uint8_t dtrPin, uint8_t ctsPin) {
+    _dtrPin = dtrPin;
+    _ctsPin = ctsPin;
+
+    pinMode(_dtrPin, OUTPUT);
+    digitalWrite(_dtrPin, LOW);
+
+    pinMode(_ctsPin, INPUT);
+
+    _sleepEnabled = true;
+    Serial.println(F("Sleep is enabled"));
+
+    // start sleeping until needed
+    _sleep();
+}
+
+void WAN::disableSleep() {
+    // wake the XBee before disabling our ability to do so...
+    _wake();
+    _sleepEnabled = false;
+    Serial.println(F("Sleep is disabled"));
+}
+
+// XXX investigate using SLEEP_PIN as INPUT instead, less power?
+// http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
+void WAN::_sleep() {
+    if (_sleepEnabled) {
+        Serial.println(F("Sleeping XBee"));
+        digitalWrite(_dtrPin, HIGH);
+    }
+}
+
+void WAN::_wake() {
+    if (_sleepEnabled) {
+        Serial.println(F("Waking XBee..."));
+        digitalWrite(_dtrPin, LOW);
+
+        // empirically, this usually takes 15-17ms
+        // after waking from sleep
+        uint32_t start = millis();
+        while (LOW != digitalRead(_ctsPin)) {
+            // delay until CTS_PIN goes low
+            delay(1);
+        }
+        Serial.print(F("XBee wake latency (ms): "));
+        Serial.println(millis() - start);
+    }
+}
+
 bool WAN::receive(Data &data) {
+    _wake();
+
     _xbee.readPacket();
 
     bool received = false;
@@ -47,7 +104,6 @@ bool WAN::receive(Data &data) {
 
             data.set(_zbRx.getRemoteAddress64().getLsb(), _zbRx.getData(), _zbRx.getDataLength());
 
-            // data has been updated
             received = true;
 
         } else if (ZB_TX_STATUS_RESPONSE == _xbee.getResponse().getApiId()) {
@@ -67,7 +123,7 @@ bool WAN::receive(Data &data) {
         Serial.println(_xbee.getResponse().getErrorCode());
     }
 
-    Serial.flush();
+    _sleep();
 
     return received;
 }
@@ -76,11 +132,16 @@ bool WAN::transmit(Data *data) {
     XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, data->getAddress());
     ZBTxRequest zbTx = ZBTxRequest(addr64, data->getData(), data->getSize());
     
+    _wake();
+
     _xbee.send(zbTx);
 
-    // fire, but don't forget - the next receive() call will handle the txResponse
-    //  and log it..
+    _sleep();
 
+    // fire, but don't forget - the next receive() call will handle the txResponse
+    // and log it..
+
+    // TODO how to confirm success???
     return true;
 }
 

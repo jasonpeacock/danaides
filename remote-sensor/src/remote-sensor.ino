@@ -12,15 +12,18 @@
  * 
  */
 
+// system
 #include <SoftwareSerial.h>
 
+// third-party
 #include "XBee.h"
-#include "Dbg.h"
 #include "Narcoleptic.h"
 
+// local
 #include "Danaides.h"
 #include "InputShiftRegister.h"
 #include "LED.h"
+#include "WAN.h"
 
 /*
  * Constants
@@ -33,11 +36,6 @@
 
 // how often to transmit values, regardless of previous sensor values
 #define FORCE_TRANSMIT_INTERVAL_SECONDS 30
-
-// enable debug output
-// 1 == ON
-// 0 == OFF
-#define DEBUG_ENABLED 1
 
 /*
  * Pins
@@ -77,69 +75,36 @@ void setupUnusedPins() {
 }
 
 /*
+ * Narcoleptic library tracks its total sleep time,
+ * that can be used to correct millis().
+ */
+uint32_t now() {
+    return millis() + Narcoleptic.millis();
+}
+
+/*
  * XBee
  */ 
-XBee xbee = XBee();
-
-XBeeAddress64 addr64 = XBeeAddress64(XBEE_FAMILY_ADDRESS, XBEE_BASE_STATION_ADDRESS);
-ZBTxRequest zbTx = ZBTxRequest(addr64, sensorValues, sizeof(sensorValues));
-
-ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 
 // XBee will use SoftwareSerial for communications, reserve the HardwareSerial
 // for debugging w/FTDI interface.
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
 
+// XXX remove eventually, this consumes too much power
+// for battery use...
 LED statusLed = LED(STATUS_LED);
 
-void setupXBee() {
-    dbg("Setting up XBee...");
+WAN wan = WAN(ss, statusLed);
 
-    pinMode(SLEEP_PIN, OUTPUT);
-    digitalWrite(SLEEP_PIN, LOW);
-
-    pinMode(CTS_PIN, INPUT);
-
+void setupWAN() {
     // software serial is used for XBee communications
     pinMode(SS_RX_PIN, INPUT);
     pinMode(SS_TX_PIN, OUTPUT);
     ss.begin(9600);
-    xbee.setSerial(ss);
 
-    waitForXBeeWake();
+    wan.setup();
 
-    // XXX remove eventually, this consumes too much power
-    // for battery use...
-    statusLed.setup();
-
-    // now sleep it until we need it
-    sleepXBee();
-
-    dbg("Completed XBee setup");
-}
-
-void wakeXBee() {
-    dbg("Waking XBee...");
-    digitalWrite(SLEEP_PIN, LOW);
-    waitForXBeeWake();
-}
-
-void waitForXBeeWake() {
-    // empirically, this usually takes 15-17ms
-    // after waking from sleep
-    uint32_t start = now();
-    while (LOW != digitalRead(CTS_PIN)) {
-        // delay until CTS_PIN goes low
-        delay(1);
-    }
-    dbg("XBee wake latency: %lums", now() - start);
-}
-
-void sleepXBee() {
-    dbg("Sleeping XBee...");
-    digitalWrite(SLEEP_PIN, HIGH);
-    // XXX investigate using SLEEP_PIN as INPUT instead, less power?
-    // http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
+    wan.enableSleep(SLEEP_PIN, CTS_PIN);
 }
 
 /*
@@ -177,53 +142,55 @@ void setupInterrupt() {
 /*
  * Remote Sensor (MAIN)
  */
-uint32_t lastTransmitTime = 0;
+uint32_t lastTransmitTime = 0UL;
 bool sensorValuesChanged = false;
 
-/*
- * Narcoleptic library tracks its total sleep time,
- * that can be used to correct millis().
- */
-uint32_t now() {
-    return millis() + Narcoleptic.millis();
+#define INPUT_CHANGE_DEBOUNCE_SECONDS 60UL
+uint8_t prevSensorValues[SENSOR_TOTAL_INPUTS];
+uint32_t inputChangeTimes[SENSOR_TOTAL_INPUTS];
+void setupInputChange() {
+    for (uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++) {
+        inputChangeTimes[i] = 0UL;
+        prevSensorValues[i] = 0;
+    }
 }
 
-/*
- * Show the current sensorValues as ON/OFF strings
- */
-void displaySensorValues() {
-    dbg("Sensor States:");
-
-    for(int i = 0; i < SENSOR_TOTAL_INPUTS; i++)
-    {
-        if(1 == sensorValues[i]) {
-            dbg("\tSensor %d:\t***ON***", i);
-        } else {
-            dbg("\tSensor %d:\tOFF", i);
+bool inputChanged() {
+    bool changed = false;
+    for (uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++) {
+        if (!inputChangeTimes[i] || millis() - inputChangeTimes[i] > INPUT_CHANGE_DEBOUNCE_SECONDS * 1000UL) {
+            if (prevSensorValues[i] != sensorValues[i]) {
+                changed = true;
+                prevSensorValues[i] = sensorValues[i];
+                inputChangeTimes[i] = millis();
+            }
         }
     }
+
+    return changed;
 }
 
 /*
  * Update the sensorValues from the input shift register values
  */
 void updateSensorValues() {
-    // assume it's unchanged since the last update
-    sensorValuesChanged = false;
+    sensorValuesChanged = inputs.getValues(sensorValues);
+}
 
-    int* values = inputs.getValues();
+/*
+ * Show the current sensorValues as ON/OFF strings
+ */
+void displaySensorValues() {
+    Serial.println(F("Sensor States:"));
 
-    for (int i = 0; i < inputs.getNumInputs(); i++) {
-        int value = values[i];
-
-        if (TANK_1_INVERTED_FLOAT == i) {
-            // invert the value so that its ON/OFF state is correct
-            value = value ? 0 : 1;
-        }
-
-        if (sensorValues[i] != value) {
-            sensorValuesChanged = true;
-            sensorValues[i] = value;
+    for(uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++)
+    {
+        Serial.print(F("\tSensor "));
+        Serial.print(i);
+        if(1 == sensorValues[i]) {
+            Serial.println(F(":\t***ON***"));
+        } else {
+            Serial.println(F("\tOFF"));
         }
     }
 }
@@ -233,40 +200,19 @@ void updateSensorValues() {
  * since the last sensorValues change, and transmit the sensorValues to the base station.
  */
 void transmitSensorValues() {
-    if (sensorValuesChanged || (now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000) ) {
-        dbg("Sending data...");
+    if (sensorValuesChanged || now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
+        Serial.println(F("Sending data..."));
         lastTransmitTime = now();
         
-        wakeXBee();
-
-        // zbTx already has a reference to the sensorValues
-        xbee.send(zbTx);
-
-        dbg("Data sent...");
-        statusLed.flash(1, 100);
-
-        if (xbee.readPacket(XBEE_STATUS_WAIT_MS)) {
-            if (ZB_TX_STATUS_RESPONSE == xbee.getResponse().getApiId()) {
-                xbee.getResponse().getZBTxStatusResponse(txStatus);
-
-                if (SUCCESS == txStatus.getDeliveryStatus()) {
-                    dbg("Success!");
-                    statusLed.flash(5, 50);
-                } else {
-                    dbg("Failure :(");
-                    statusLed.flash(3, 500);
-                }
-            }
-        } else if (xbee.getResponse().isError()) {
-            dbg("Error reading packet. Error code: %s", xbee.getResponse().getErrorCode());
+        Data values = Data(wan.getBaseStationAddress(), sensorValues, SENSOR_TOTAL_INPUTS);
+        if (wan.transmit(&values)) {
+            Serial.println(F("Sensor values sent!"));
         } else {
-            dbg("Local XBee didn't provide a timely TX status response (should not happen)");
-            statusLed.flash(2, 50);
+            Serial.println(F("Failed to transmit values"));
         }
 
-        sleepXBee();
-
-        dbg("Total transmit time: %lums", now() - lastTransmitTime);
+        Serial.print(F("Total transmit time (ms): "));
+        Serial.println(now() - lastTransmitTime);
     }
 }
 
@@ -274,7 +220,7 @@ void transmitSensorValues() {
  * Put the Arduino board into lowest-power sleep
  */
 void sleepArduino() {
-    dbg("Sleeping!");
+    Serial.println(F("Sleeping!"));
 
     // allow serial buffer to flush before sleeping
     Serial.flush();
@@ -282,14 +228,14 @@ void sleepArduino() {
     Narcoleptic.delay(CHECK_INTERVAL_SECONDS * 1000);
 
     // continue from here after waking
-    dbg("Awake!");
+    Serial.println(F("Awake!"));
 }
 
 void setup() {
     // hardware serial is used for FTDI debugging
-    Debug.begin();
+    Serial.begin(9600);
 
-    dbg("setup() start..");
+    Serial.println(F("setup() start.."));
 
     setupUnusedPins();
 
@@ -299,11 +245,11 @@ void setup() {
 
     inputs.setup();
 
-    setupXBee();
+    setupWAN();
 
-    dbg("setup() completed!");
+    Serial.println(F("setup() completed!"));
 
-    dbg("Performing initial update & transmit");
+    Serial.println(F("Performing initial update & transmit"));
 
     updateSensorValues();
 

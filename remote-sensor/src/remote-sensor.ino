@@ -16,8 +16,8 @@
 #include <SoftwareSerial.h>
 
 // third-party
-#include "XBee.h"
 #include "Narcoleptic.h"
+#include "XBee.h"
 
 // local
 #include "Danaides.h"
@@ -29,19 +29,22 @@
  * Constants
  */
 
+//XXX update to correct values! (10min/30min?)
+
 // how often to check sensors
 // NOTE: if all sensor values match previous values
 //       then NO update will be transmitted.
-#define CHECK_INTERVAL_SECONDS 10
+#define CHECK_INTERVAL_SECONDS 10UL
 
 // how often to transmit values, regardless of previous sensor values
-#define FORCE_TRANSMIT_INTERVAL_SECONDS 30
+#define FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
 
 /*
  * Pins
  */
 
 #define INTERRUPT      1           // attach to the 2nd interrupt, which is pin 3
+
 #define INTERRUPT_PIN  3           // interrupt pin (wake button)
 #define CP_PIN         4           // 74HC165N Clock Pulse
 #define CE_PIN         5           // 74HC165N Clock Enable

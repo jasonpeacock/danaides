@@ -145,31 +145,6 @@ void setupInterrupt() {
 uint32_t lastTransmitTime = 0UL;
 bool sensorValuesChanged = false;
 
-#define INPUT_CHANGE_DEBOUNCE_SECONDS 60UL
-uint8_t prevSensorValues[SENSOR_TOTAL_INPUTS];
-uint32_t inputChangeTimes[SENSOR_TOTAL_INPUTS];
-void setupInputChange() {
-    for (uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++) {
-        inputChangeTimes[i] = 0UL;
-        prevSensorValues[i] = 0;
-    }
-}
-
-bool inputChanged() {
-    bool changed = false;
-    for (uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++) {
-        if (!inputChangeTimes[i] || millis() - inputChangeTimes[i] > INPUT_CHANGE_DEBOUNCE_SECONDS * 1000UL) {
-            if (prevSensorValues[i] != sensorValues[i]) {
-                changed = true;
-                prevSensorValues[i] = sensorValues[i];
-                inputChangeTimes[i] = millis();
-            }
-        }
-    }
-
-    return changed;
-}
-
 /*
  * Update the sensorValues from the input shift register values
  */
@@ -188,7 +163,7 @@ void displaySensorValues() {
         Serial.print(F("\tSensor "));
         Serial.print(i);
         if(1 == sensorValues[i]) {
-            Serial.println(F(":\t***ON***"));
+            Serial.println(F("\t***ON***"));
         } else {
             Serial.println(F("\tOFF"));
         }

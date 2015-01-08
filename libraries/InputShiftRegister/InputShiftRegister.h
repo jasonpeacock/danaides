@@ -29,6 +29,7 @@ class InputShiftRegister {
         void setup();
 
         // retrieve all the digital input values
+        // returning TRUE/FALSE if they changed
         bool getValues(uint8_t* values);
 
         // how many inputs do we think we have?

@@ -6,14 +6,13 @@
 
 InputShiftRegister::InputShiftRegister(uint8_t numInputs, 
                                        uint8_t plPin, 
-                                       uint8_t cePin, 
-                                       uint8_t cpPin, 
-                                       uint8_t q7Pin) {
-    _numInputs = numInputs;
-    _plPin = plPin;
-    _cePin = cePin;
-    _cpPin = cpPin;
-    _q7Pin = q7Pin;
+                                       uint8_t cePin, uint8_t cpPin, 
+                                       uint8_t q7Pin) : 
+                                       _numInputs(numInputs), 
+                                       _plPin(plPin), 
+                                       _cePin(cePin), 
+                                       _cpPin(cpPin), 
+                                       _q7Pin(q7Pin) {
 }
 
 InputShiftRegister::~InputShiftRegister() {
@@ -42,13 +41,19 @@ bool InputShiftRegister::getValues(uint8_t *values) {
     digitalWrite(_cePin, LOW);
 
     bool changed = false;
-    for (uint8_t i = 0; i < _numInputs ; i++) {
-        uint8_t newValue = digitalRead(_q7Pin); 
-        if (values[_numInputs - i - 1] != newValue) {
+    for (uint8_t i = 0; i < _numInputs; i++) {
+        // order of values returned from the shift register
+        // is from 32 -> 1, so need to revese & offset them
+        // for index use.
+        uint8_t index = _numInputs - i - 1;
+
+        uint8_t newValue = digitalRead(_q7Pin);
+        
+        if (values[index] != newValue) {
             changed = true;
         }
 
-        values[_numInputs - i - 1] = newValue;
+        values[index] = newValue;
 
         // pulse the clock to load the next input value
         digitalWrite(_cpPin, HIGH);

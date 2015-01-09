@@ -15,6 +15,7 @@
 #include "Danaides.h"
 #include "LED.h"
 #include "PumpSwitch.h"
+#include "TankSensors.h"
 #include "WAN.h"
 
 #include "pitches.h"
@@ -188,6 +189,8 @@ void updateScrollMessage() {
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
+TankSensors tankSensors = TankSensors();
+
 uint32_t lastStatusTime = 0;
 
 void enablePump() {
@@ -227,17 +230,12 @@ void receive() {
             // we're the base station, this would be weird
         } else if (wan.isRemoteSensorAddress(data.getAddress())) {
             Serial.println(F("New data from Remote Sensor"));
-            if (data.getSize() == SENSOR_TOTAL_INPUTS) {
-                for (uint8_t i = 0; i < data.getSize(); i++) {
-                    sensorValues[i] = data.getData()[i];
-                }
+            if (tankSensors.getNumSensors() == data.getSize()) {
+                tankSensors.update(data);
+                Serial.println(F("Updated Tank Sensor values"));
 
-                // invert the value so that its ON/OFF state is correct
-                sensorValues[TANK_1_INVERTED_FLOAT] = sensorValues[TANK_1_INVERTED_FLOAT] ? 0 : 1;
+                // TODO update the display
             }
-
-            // TODO update the display
-
         } else if (wan.isPumpSwitchAddress(data.getAddress())) {
             Serial.println(F("New data from Pump Switch"));
             if (data.getSize() == pumpSwitch.getNumValues()) {
@@ -332,6 +330,8 @@ void setup() {
 
     pumpSwitch.setup();
 
+    tankSensors.setup();
+
     setupAlpha();
 
     setupWAN();
@@ -355,6 +355,8 @@ void loop() {
     updateScrollMessage();
 
     pumpSwitch.check();
+    
+    tankSensors.check();
     
     receive();
 

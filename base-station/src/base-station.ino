@@ -125,34 +125,61 @@ void setupAlpha() {
     alpha.writeDisplay();
 }
 
-void scrollAlphaMessage(const char* message, uint8_t numScrolls) {
-    uint8_t messageSize = strlen(message); // max 255 chars
-    char displayBuffer[4] = {' ', ' ', ' ', ' '};
+#define SCROLL_CHAR_COUNT 4
+uint32_t lastScrollTime = 0UL;
+uint8_t scrollPosition = 0;
+char scrollBuffer[SCROLL_CHAR_COUNT] = {' ', ' ', ' ', ' '};
+char scrollMessage[250];
+void setScrollMessage(char* message) {
+    // copy the message
+    strncpy(scrollMessage, message, 249);
+    // just in case message was larger...
+    scrollMessage[249] = '\0';
 
-    while(numScrolls > 0) {
-        numScrolls--;
-        
-        for (uint8_t i = 0; i < messageSize + 4; i++) {
-            // scroll the message off the display by including
-            // 4 extra empty chars
-            char c = message[i];
-            if (i >= messageSize) {
-                c = ' ';
+    // clear the buffer
+    for (uint8_t i = 0; i < SCROLL_CHAR_COUNT; i++) {
+        scrollBuffer[i] = ' ';
+    }
+
+    // clear the display
+    alpha.clear();
+    alpha.writeDisplay();
+
+    // reset the vars
+    scrollPosition = 0;
+    lastScrollTime = 0UL;
+}
+
+#define SCROLL_DELAY_MILLIS 200UL
+void updateScrollMessage() {
+    uint8_t size = strlen(scrollMessage);
+    if (size + SCROLL_CHAR_COUNT <= scrollPosition) {
+        // everything has been scrolled, nothing to do
+        return;
+    }
+
+    if (millis() - lastScrollTime > SCROLL_DELAY_MILLIS) {
+        // scroll the message off the display by including
+        // 4 extra empty chars
+        char c = scrollMessage[scrollPosition];
+        if (size <= scrollPosition) {
+            c = ' ';
+        }
+
+        for (uint8_t i = 0; i < SCROLL_CHAR_COUNT; i++) {
+            if (i == SCROLL_CHAR_COUNT - 1) {
+                scrollBuffer[i] = c;
+            } else {
+                scrollBuffer[i] = scrollBuffer[i + 1];
             }
 
-            displayBuffer[0] = displayBuffer[1];
-            displayBuffer[1] = displayBuffer[2];
-            displayBuffer[2] = displayBuffer[3];
-            displayBuffer[3] = c;
-
-            alpha.writeDigitAscii(0, displayBuffer[0]);
-            alpha.writeDigitAscii(1, displayBuffer[1]);
-            alpha.writeDigitAscii(2, displayBuffer[2]);
-            alpha.writeDigitAscii(3, displayBuffer[3]);
-
-            alpha.writeDisplay();
-            delay(200);
+            alpha.writeDigitAscii(i, scrollBuffer[i]);
         }
+
+        alpha.writeDisplay();
+
+        lastScrollTime = millis();
+        scrollPosition++;
     }
 }
 
@@ -161,18 +188,28 @@ void scrollAlphaMessage(const char* message, uint8_t numScrolls) {
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
+uint32_t lastStatusTime = 0;
+
 void enablePump() {
     Serial.println(F("Pump enabled!"));
     // send the current (updated) pump values
     transmit();
-    scrollAlphaMessage("PUMP ENABLED", 1);
+    setScrollMessage("PUMP ENABLED");
+
+    // reset the status display so we can show our current
+    // message before it displays itself.
+    lastStatusTime = millis();
 }
 
 void disablePump() {
     Serial.println(F("Pump disabled!"));
     // send the current (updated) pump values
     transmit();
-    scrollAlphaMessage("PUMP DISABLED", 1);
+    setScrollMessage("PUMP DISABLED");
+
+    // reset the status display so we can show our current
+    // message before it displays itself.
+    lastStatusTime = millis();
 }
 
 void receive() {
@@ -253,11 +290,9 @@ void transmit() {
     Serial.flush();
 }
 
-uint32_t lastStatusTime = 0;
 void displayStatus() {
     if (millis() - lastStatusTime > 15 * 1000UL) {
         lastStatusTime = millis();
-        scrollAlphaMessage("PUMP STATUS", 1);
 
         char state[4];
         if (pumpSwitch.isOn()) {
@@ -265,7 +300,6 @@ void displayStatus() {
         } else {
             snprintf(state, 4, "OFF");
         }
-        scrollAlphaMessage(state, 1);
 
         char duration_1[15];
         char duration_2[15];
@@ -281,8 +315,8 @@ void displayStatus() {
         }
 
         char message[100];
-        snprintf(message, 100, "%s %s", duration_1, duration_2);
-        scrollAlphaMessage(message, 1);
+        snprintf(message, 100, "PUMP STATUS %s %s %s", state, duration_1, duration_2);
+        setScrollMessage(message);
     }
 }
 
@@ -309,7 +343,7 @@ void setup() {
     // TODO transmit any initial values
 
     // say something
-    scrollAlphaMessage("HELLO", 1);
+    setScrollMessage("HELLO");
 
     // play a sound
     //playSetupMelody();
@@ -318,6 +352,8 @@ void setup() {
 }
 
 void loop() {
+    updateScrollMessage();
+
     pumpSwitch.check();
     
     receive();

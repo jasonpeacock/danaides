@@ -71,6 +71,14 @@ void WAN::disableSleep() {
 void WAN::_sleep() {
     if (_sleepEnabled) {
         Serial.println(F("Sleeping XBee"));
+
+        //XXX wait a bit first, was sometimes sending bad
+        // data (partial packets?) due to sleeping too
+        // quickly. This delay (500ms) appears to have fixed it,
+        // need to test more to see what delay can be decreased
+        // to...
+        delay(500);
+
         digitalWrite(_dtrPin, HIGH);
     }
 }

@@ -153,6 +153,7 @@ bool sensorValuesChanged = false;
  */
 void updateSensorValues() {
     sensorValuesChanged = inputs.getValues(sensorValues);
+    freeRam();
 }
 
 /*
@@ -167,8 +168,10 @@ void displaySensorValues() {
         Serial.print(i);
         if(1 == sensorValues[i]) {
             Serial.println(F("\t***ON***"));
-        } else {
+        } else if (0 == sensorValues[i]) {
             Serial.println(F("\tOFF"));
+        } else {
+            Serial.println(F("\tUNKNOWN"));
         }
     }
 }
@@ -181,8 +184,9 @@ void transmitSensorValues() {
     if (sensorValuesChanged || now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         Serial.println(F("Sending data..."));
         lastTransmitTime = now();
-        
+
         Data values = Data(wan.getBaseStationAddress(), sensorValues, SENSOR_TOTAL_INPUTS);
+
         if (wan.transmit(&values)) {
             Serial.println(F("Sensor values sent!"));
         } else {
@@ -191,6 +195,8 @@ void transmitSensorValues() {
 
         Serial.print(F("Total transmit time (ms): "));
         Serial.println(now() - lastTransmitTime);
+
+        freeRam();
     }
 }
 

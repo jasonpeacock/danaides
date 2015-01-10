@@ -9,7 +9,38 @@
  * Private
  */
 
-bool TankSensors::_getSensorState(uint8_t sensorIndex) {
+/*
+ * Public
+ */
+
+TankSensors::TankSensors() {
+}
+
+TankSensors::~TankSensors() {
+}
+
+uint8_t* TankSensors::getSensorValues() {
+    return _sensors;
+}
+
+uint8_t TankSensors::getNumSensors() {
+    return SENSOR_TOTAL_INPUTS;
+}
+
+bool TankSensors::update(Data &data) {
+    bool changed = false;
+    for (uint8_t i = 0; i < data.getSize(); i++) {
+        if (_sensors[i] != data.getData()[i]) {
+            changed = true;
+        } 
+
+        _sensors[i] = data.getData()[i];
+    }
+
+    return changed;
+}
+
+bool TankSensors::getSensorState(uint8_t sensorIndex) {
     if (getNumSensors() - 1 < sensorIndex) {
         // anything unkown is OFF
         Serial.print(F("Unknown sensor index: "));
@@ -24,22 +55,6 @@ bool TankSensors::_getSensorState(uint8_t sensorIndex) {
     return _sensors[sensorIndex];
 }
 
-/*
- * Public
- */
-
-TankSensors::TankSensors() {
-}
-
-TankSensors::~TankSensors() {
-}
-
-void TankSensors::update(Data &data) {
-    for (uint8_t i = 0; i < data.getSize(); i++) {
-        _sensors[i] = data.getData()[i];
-    }
-}
-
 bool TankSensors::getValveState(uint8_t valveNumber) {
     if (SENSOR_TOTAL_VALVES < valveNumber || 0 == valveNumber) {
         // anything unkown is OFF
@@ -48,7 +63,7 @@ bool TankSensors::getValveState(uint8_t valveNumber) {
         return false;
     }
 
-    return _getSensorState(VALVE_POSITION_OFFSET + valveNumber);
+    return getSensorState(VALVE_POSITION_OFFSET + valveNumber);
 }
 
 bool TankSensors::getFloatState(uint8_t tankNumber, uint8_t floatNumber) {
@@ -72,14 +87,14 @@ bool TankSensors::getFloatState(uint8_t tankNumber, uint8_t floatNumber) {
             // both sensors must be OFF at the same time, while either sensor
             // can be ON. This is mean to provide insurance against over-filling
             // the tank if one sensor goes bad.
-            return _getSensorState(TANK_1_FLOAT_1) || _getSensorState(TANK_1_INVERTED_FLOAT);
+            return getSensorState(TANK_1_FLOAT_1) || getSensorState(TANK_1_INVERTED_FLOAT);
         }
 
-        return _getSensorState(TANK_1_FLOAT_OFFSET + floatNumber);
+        return getSensorState(TANK_1_FLOAT_OFFSET + floatNumber);
     } else if (2 == tankNumber) {
-        return _getSensorState(TANK_2_FLOAT_OFFSET + floatNumber);
+        return getSensorState(TANK_2_FLOAT_OFFSET + floatNumber);
     } else if (3 == tankNumber) {
-        return _getSensorState(TANK_3_FLOAT_OFFSET + floatNumber);
+        return getSensorState(TANK_3_FLOAT_OFFSET + floatNumber);
     }
 }
 
@@ -89,6 +104,3 @@ bool TankSensors::getTankState(uint8_t tankNumber) {
     return getFloatState(tankNumber, 1);
 }
 
-uint8_t TankSensors::getNumSensors() {
-    return SENSOR_TOTAL_INPUTS;
-}

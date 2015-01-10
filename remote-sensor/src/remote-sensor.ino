@@ -21,28 +21,17 @@
 
 // local
 #include "Danaides.h"
+#include "Data.h"
 #include "InputShiftRegister.h"
 #include "LED.h"
+#include "TankSensors.h"
 #include "WAN.h"
 
 /*
  * Constants
  */
 
-//XXX update to correct values! (10min/30min?)
-
-// how often to check sensors
-// NOTE: if all sensor values match previous values
-//       then NO update will be transmitted.
-#define CHECK_INTERVAL_SECONDS 10UL
-
-// how often to transmit values, regardless of previous sensor values
-#define FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
-
-/*
- * Pins
- */
-
+// Pins
 #define INTERRUPT      1           // attach to the 2nd interrupt, which is pin 3
 
 #define INTERRUPT_PIN  3           // interrupt pin (wake button)
@@ -111,11 +100,6 @@ void setupWAN() {
 }
 
 /*
- * InputShiftRegister
- */
-InputShiftRegister inputs(SENSOR_TOTAL_INPUTS, PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
-
-/*
  * Arduino sleep
  */
 void setupSleep() {
@@ -145,15 +129,16 @@ void setupInterrupt() {
 /*
  * Remote Sensor (MAIN)
  */
-uint32_t lastTransmitTime = 0UL;
-bool sensorValuesChanged = false;
+TankSensors tankSensors = TankSensors();
+InputShiftRegister inputs(tankSensors.getNumSensors(), PL_PIN, CE_PIN, CP_PIN, Q7_PIN);
 
 /*
  * Update the sensorValues from the input shift register values
  */
-void updateSensorValues() {
-    sensorValuesChanged = inputs.getValues(sensorValues);
-    freeRam();
+bool sensorValuesUpdated() {
+    Data values = Data();
+    inputs.getInputValues(values);
+    return tankSensors.update(values);
 }
 
 /*
@@ -162,17 +147,15 @@ void updateSensorValues() {
 void displaySensorValues() {
     Serial.println(F("Sensor States:"));
 
-    for(uint8_t i = 0; i < SENSOR_TOTAL_INPUTS; i++)
+    for(uint8_t i = 0; i < tankSensors.getNumSensors(); i++)
     {
         Serial.print(F("\tSensor "));
         Serial.print(i);
-        if(1 == sensorValues[i]) {
+        if(tankSensors.getSensorState(i)) {
             Serial.println(F("\t***ON***"));
-        } else if (0 == sensorValues[i]) {
-            Serial.println(F("\tOFF"));
         } else {
-            Serial.println(F("\tUNKNOWN"));
-        }
+            Serial.println(F("\tOFF"));
+        } 
     }
 }
 
@@ -180,12 +163,13 @@ void displaySensorValues() {
  * Check if the sensorValues changed, or FORCE_TRANSMIT_INTERVAL_SECONDS has elapsed
  * since the last sensorValues change, and transmit the sensorValues to the base station.
  */
-void transmitSensorValues() {
-    if (sensorValuesChanged || now() - lastTransmitTime >= FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
+uint32_t lastTransmitTime = 0UL;
+void transmitSensorValues(bool force = false) {
+    if (force || now() - lastTransmitTime >= REMOTE_SENSOR_FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         Serial.println(F("Sending data..."));
         lastTransmitTime = now();
 
-        Data values = Data(wan.getBaseStationAddress(), sensorValues, SENSOR_TOTAL_INPUTS);
+        Data values = Data(wan.getBaseStationAddress(), tankSensors.getSensorValues(), tankSensors.getNumSensors());
 
         if (wan.transmit(&values)) {
             Serial.println(F("Sensor values sent!"));
@@ -209,7 +193,7 @@ void sleepArduino() {
     // allow serial buffer to flush before sleeping
     Serial.flush();
 
-    Narcoleptic.delay(CHECK_INTERVAL_SECONDS * 1000);
+    Narcoleptic.delay(REMOTE_SENSOR_CHECK_INTERVAL_SECONDS * 1000UL);
 
     // continue from here after waking
     Serial.println(F("Awake!"));
@@ -218,12 +202,12 @@ void sleepArduino() {
 void setup() {
     // hardware serial is used for FTDI debugging
     Serial.begin(9600);
-
     Serial.println(F("setup() start.."));
 
     setupUnusedPins();
 
     setupInterrupt();
+    interruptedByPin = false;
 
     setupSleep();
 
@@ -232,23 +216,12 @@ void setup() {
     setupWAN();
 
     Serial.println(F("setup() completed!"));
-
-    Serial.println(F("Performing initial update & transmit"));
-
-    updateSensorValues();
-
-    displaySensorValues();
-
-    // force initial transmitting of values
-    sensorValuesChanged = true;
-
-    transmitSensorValues();
 }
 
 void loop() {
-    sleepArduino();
-
-    updateSensorValues();
+    if (sensorValuesUpdated()) {
+        transmitSensorValues(true);
+    }
 
     if (interruptedByPin) {
         interruptedByPin = false;
@@ -256,5 +229,7 @@ void loop() {
     }
 
     transmitSensorValues();
+
+    sleepArduino();
 }
 

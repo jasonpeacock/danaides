@@ -2,6 +2,7 @@
 #include <Arduino.h>
 
 // local
+#include "Data.h"
 #include "InputShiftRegister.h"
 
 InputShiftRegister::InputShiftRegister(uint8_t numInputs, 
@@ -29,7 +30,7 @@ void InputShiftRegister::setup() {
     digitalWrite(_plPin, HIGH);
 }
 
-bool InputShiftRegister::getValues(uint8_t *values) {
+void InputShiftRegister::getInputValues(Data &data) {
     // 1. disable the clock to prevent reading
     // 2. read the inputs w/parallel load, pausing
     //    long enough to capture all the values
@@ -40,20 +41,14 @@ bool InputShiftRegister::getValues(uint8_t *values) {
     digitalWrite(_plPin, HIGH);
     digitalWrite(_cePin, LOW);
 
-    bool changed = false;
+    uint8_t values[_numInputs];
     for (uint8_t i = 0; i < _numInputs; i++) {
         // order of values returned from the shift register
         // is from 32 -> 1, so need to revese & offset them
         // for index use.
         uint8_t index = _numInputs - i - 1;
-
-        uint8_t newValue = digitalRead(_q7Pin);
         
-        if (values[index] != newValue) {
-            changed = true;
-        }
-
-        values[index] = newValue;
+        values[index] = digitalRead(_q7Pin);
 
         // pulse the clock to load the next input value
         digitalWrite(_cpPin, HIGH);
@@ -61,7 +56,7 @@ bool InputShiftRegister::getValues(uint8_t *values) {
         digitalWrite(_cpPin, LOW);
     }
 
-    return changed;
+    data.set(values, _numInputs);
 }
 
 uint8_t InputShiftRegister::getNumInputs() {

@@ -20,9 +20,11 @@ class Data {
 
     public:
         Data();
+        Data(uint8_t* data, uint8_t size);
         Data(uint32_t address, uint8_t* data, uint8_t size);
         ~Data();
 
+        void set(uint8_t* data, uint8_t size);
         void set(uint32_t address, uint8_t* data, uint8_t size);
 
         uint32_t getAddress();

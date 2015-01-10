@@ -4,6 +4,9 @@
 // system
 #include <Arduino.h>
 
+// local
+#include "Data.h"
+
 /*
  * Constants
  */
@@ -24,15 +27,9 @@ class InputShiftRegister {
         InputShiftRegister(uint8_t numInputs, uint8_t plPin, uint8_t cePin, uint8_t cpPin, uint8_t q7Pin);
         ~InputShiftRegister();
 
-        // to be called during setup() in main Arduino sketch,
-        // will setup the pins properly and anything else.
         void setup();
 
-        // retrieve all the digital input values
-        // returning TRUE/FALSE if they changed
-        bool getValues(uint8_t* values);
-
-        // how many inputs do we think we have?
+        void    getInputValues(Data &data);
         uint8_t getNumInputs();
 };
 

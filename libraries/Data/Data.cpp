@@ -33,6 +33,10 @@ Data::Data() : _initialized(false),
                _size(0) {
 }
 
+Data::Data(uint8_t *data, uint8_t size) : _initialized(false) {
+    _init(0UL, data, size);
+}
+
 Data::Data(uint32_t address, uint8_t *data, uint8_t size) : _initialized(false) {
     _init(address, data, size);
 }
@@ -41,6 +45,10 @@ Data::~Data() {
     if (_initialized) {
         delete [] _data;
     }
+}
+
+void Data::set(uint8_t *data, uint8_t size) {
+    _init(0UL, data, size);
 }
 
 void Data::set(uint32_t address, uint8_t *data, uint8_t size) {

@@ -190,6 +190,7 @@ void updateScrollMessage() {
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 
 TankSensors tankSensors = TankSensors();
+bool tankSensorsUpdated = false;
 
 uint32_t lastStatusTime = 0;
 
@@ -232,6 +233,7 @@ void receive() {
             Serial.println(F("New data from Remote Sensor"));
             if (tankSensors.getNumSensors() == data.getSize()) {
                 tankSensors.update(data);
+                tankSensorsUpdated = true;
                 Serial.println(F("Updated Tank Sensor values"));
 
                 // TODO update the display
@@ -318,6 +320,39 @@ void displayStatus() {
     }
 }
 
+#define EVALUATE_TANK_SENSOR_INTERVAL_MINUTES 1
+uint32_t lastTankSensorCheckTime = 0UL;
+void checkTankSensors() {
+    if (millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
+        lastTankSensorCheckTime = millis();
+
+        if (!tankSensorsUpdated) {
+            Serial.println(F("TankSensors not updated yet"));
+            return;
+        }
+
+        Serial.print(F("Checking tank sensors..."));
+        Serial.print(F("Tank 1 state: "));
+        Serial.print(tankSensors.getTankState(1));
+        Serial.print(F(" Pump state: "));
+        Serial.println(pumpSwitch.isOn());
+
+        if (tankSensors.getTankState(1) && pumpSwitch.isOn()) {
+            // tank #1 is FULL and pump is ON, turn the pump OFF
+            // ...if the pump has not run long enough (MIN_ON_MINUTES)
+            // then the switch will ignore this request
+            Serial.println(F("Tank 1 full, stopping pump"));
+            pumpSwitch.stop();
+        } else if (!tankSensors.getTankState(1) && pumpSwitch.isOff()) {
+            // tank #1 is NOT FULL and pump is OFF, turn the pump ON
+            // ...if the pump has not rested long enough (MIN_OFF_MINUTES)
+            // then the switch will ignore this request
+            Serial.println(F("Tank 1 NOT full, starting pump"));
+            pumpSwitch.start();
+        }
+    }
+}
+
 void setup() {
     // hardware serial is used for FTDI debugging
     Serial.begin(9600);
@@ -329,8 +364,6 @@ void setup() {
     setupSpeaker();
 
     pumpSwitch.setup();
-
-    tankSensors.setup();
 
     setupAlpha();
 
@@ -352,13 +385,13 @@ void setup() {
 }
 
 void loop() {
+    pumpSwitch.check();
+    wan.check();
     updateScrollMessage();
 
-    pumpSwitch.check();
-    
-    tankSensors.check();
-    
     receive();
 
+    checkTankSensors();
+    
     displayStatus();
 }

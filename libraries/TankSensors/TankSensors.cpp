@@ -34,10 +34,6 @@ TankSensors::TankSensors() {
 TankSensors::~TankSensors() {
 }
 
-void TankSensors::setup() {
-    // nothing to do
-}
-
 void TankSensors::update(Data &data) {
     for (uint8_t i = 0; i < data.getSize(); i++) {
         _sensors[i] = data.getData()[i];
@@ -91,9 +87,6 @@ bool TankSensors::getTankState(uint8_t tankNumber) {
     // the 1st float in each tank is the top float,
     // which detects if it's full or not.
     return getFloatState(tankNumber, 1);
-}
-
-void TankSensors::check() {
 }
 
 uint8_t TankSensors::getNumSensors() {

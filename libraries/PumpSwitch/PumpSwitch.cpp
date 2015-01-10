@@ -19,7 +19,6 @@ void PumpSwitch::_resetValues(bool running) {
 }
 
 void PumpSwitch::_resetSettings() {
-    _settings[PUMP_SETTINGS_ON_DELAY_MINUTES] = PUMP_DEFAULT_ON_DELAY_MINUTES;
     _settings[PUMP_SETTINGS_MAX_ON_MINUTES]   = PUMP_DEFAULT_MAX_ON_MINUTES;
     _settings[PUMP_SETTINGS_MIN_ON_MINUTES]   = PUMP_DEFAULT_MIN_ON_MINUTES;
     _settings[PUMP_SETTINGS_MIN_OFF_MINUTES]  = PUMP_DEFAULT_MIN_OFF_MINUTES;
@@ -111,8 +110,8 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
     if (_values[PUMP_VALUES_STATE] != values[PUMP_VALUES_STATE]) {
         Serial.println(F("New values have a different pump state, updating Pump Switch"));
         // the updated values reflect a different pump state,
-        // update (force) our Pump Switch to match
-        values[PUMP_VALUES_STATE] ? start(true) : stop();
+        // update (force) our PumpSwitch to match
+        values[PUMP_VALUES_STATE] ? start(true) : stop(true);
     }
 
     // and now copy all the values to match (especially the elapsed times)
@@ -151,10 +150,6 @@ uint8_t PumpSwitch::getNumSettings() {
     return PUMP_SETTINGS_TOTAL;
 }
 
-uint8_t PumpSwitch::getOnDelayMinutes() {
-    return _settings[PUMP_SETTINGS_ON_DELAY_MINUTES];
-}
-
 uint8_t PumpSwitch::getMaxOnMinutes() {
     return _settings[PUMP_SETTINGS_MAX_ON_MINUTES];
 }
@@ -188,9 +183,11 @@ uint32_t PumpSwitch::getElapsedMinutes() {
 void PumpSwitch::check() {
     _updateElapsedTime();
 
+    _led.check();
+
     if (_debouncer.update() && _debouncer.fell()) {
         // button was pressed
-        isOn() ? stop() : start();
+        isOn() ? stop(true) : start();
     }
 
     if (isOn()) {
@@ -210,9 +207,9 @@ void PumpSwitch::check() {
 
 /*
  * Start the pump, triggered either by user input (button)
- * or via request from the base station.
+ * or via request from a remote PumpSwitch 
  */
-void PumpSwitch::start(bool force) {
+bool PumpSwitch::start(bool force) {
     Serial.print(F("Starting pump for "));
     Serial.print(getMaxOnMinutes());
     Serial.println(F("min"));
@@ -222,7 +219,7 @@ void PumpSwitch::start(bool force) {
         Serial.print(getElapsedMinutes());
         Serial.println(F("min"));
         // don't do anything if the pump is already running
-        return;
+        return true;
     }
 
     // don't start the pump if it hasn't rested long enough
@@ -242,7 +239,7 @@ void PumpSwitch::start(bool force) {
             Serial.println(F("min), NOT starting"));
 
             _led.error();
-            return;
+            return false;
         } else {
             Serial.println(F("Pump override enabled!"));
 
@@ -264,13 +261,14 @@ void PumpSwitch::start(bool force) {
     (*_startCallback)();
 
     Serial.println(F("Pump started"));
+    return true;
 }
 
 /*
  * Stop the pump, triggered either by user input (button)
  * or via request from the base station.
  */
-void PumpSwitch::stop() {
+bool PumpSwitch::stop(bool force) {
     Serial.print(F("Stopping pump, cannot restart for "));
     Serial.print(getMinOffMinutes());
     Serial.println(F("min"));
@@ -281,7 +279,23 @@ void PumpSwitch::stop() {
         Serial.println(F("min ago"));
 
         // don't do anything if the pump is already stopped
-        return;
+        return true;
+    }
+
+    // don't stop the pump if it hasn't run long enough
+    if (getMinOnMinutes() > getElapsedMinutes()) {
+        if (!force) {
+            Serial.print(F("Pump only on "));
+            Serial.print(getElapsedMinutes());
+            Serial.print(F("min (MINIMUM: "));
+            Serial.print(getMinOnMinutes());
+            Serial.println(F("min), NOT stopping"));
+
+            _led.error();
+            return false;
+        } else {
+            Serial.println(F("Pump override enabled!"));
+        }
     }
 
     _led.thinking();
@@ -296,5 +310,6 @@ void PumpSwitch::stop() {
     (*_stopCallback)();
 
     Serial.println(F("Pump stopped"));
+    return true;
 }
 

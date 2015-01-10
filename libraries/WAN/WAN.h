@@ -48,6 +48,7 @@ class WAN {
         ~WAN();
 
         void setup();
+        void check();
 
         // will sleep the XBee when not receiving/transmitting
         void enableSleep(uint8_t dtrPin, uint8_t ctsPin);

@@ -35,6 +35,10 @@ void LED::setup() {
     digitalWrite(_pin, LOW);
 }
 
+void LED::check() {
+    //XXX update LED 
+}
+
 bool LED::enabled() {
     return _pin;
 }

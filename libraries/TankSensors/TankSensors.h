@@ -54,7 +54,7 @@
 #define VALVE_POSITION_OFFSET 18
 
 #define SENSOR_TOTAL_VALVES 5
-#define SENSOR_TOTAL_TANKS 3
+#define SENSOR_TOTAL_TANKS  3
 #define SENSOR_TOTAL_FLOATS_PER_TANK 6
 
 //XXX remove the last shift register, we don't
@@ -82,8 +82,6 @@ class TankSensors {
         TankSensors();
         ~TankSensors();
 
-        void setup();
-        void check();
         void update(Data &data);
 
         bool getValveState(uint8_t valveNumber);

@@ -43,6 +43,10 @@ void WAN::setup() {
     _statusLed.setup();
 }
 
+void WAN::check() {
+    _statusLed.check();
+}
+
 void WAN::enableSleep(uint8_t dtrPin, uint8_t ctsPin) {
     _dtrPin = dtrPin;
     _ctsPin = ctsPin;

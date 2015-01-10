@@ -24,9 +24,8 @@ class LED {
         LED(uint8_t pin);
         ~LED();
 
-        // to be called during setup() in main Arduino sketch,
-        // will setup the pins properly and anything else.
         void setup();
+        void check();
 
         bool enabled();
         void on();

@@ -35,6 +35,8 @@
 class PumpSwitch {
     private:
 
+        bool _master;
+
         Bounce _debouncer;
         uint8_t _buttonPin;
 
@@ -58,12 +60,17 @@ class PumpSwitch {
         void _off();
         void _updateElapsedTime();
 
+        uint32_t _calculateElapsedSeconds(uint8_t* values);
+
     public:
-        PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(), void (*stopCallback)());
+        PumpSwitch(bool master, uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(), void (*stopCallback)());
         ~PumpSwitch();
 
         void setup();
         void check();
+
+        bool isMaster();
+        bool isSlave();
 
         bool isOn();
         bool isOff();

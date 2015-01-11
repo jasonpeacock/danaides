@@ -135,7 +135,7 @@ void setupWAN() {
 /*
  * Base Station (MAIN)
  */
-PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
+PumpSwitch pumpSwitch = PumpSwitch(false, BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 TankSensors tankSensors = TankSensors();
 
 Message message = Message(0x70, 0x71);

@@ -10,7 +10,6 @@ uint32_t PumpSwitch::_msToMinutes(uint32_t ms) {
 }
 
 void PumpSwitch::_resetValues(bool running) {
-    _time = millis();
     _values[PUMP_VALUES_STATE]   = running;
     _values[PUMP_VALUES_DAYS]    = 0;
     _values[PUMP_VALUES_HOURS]   = 0;
@@ -57,23 +56,34 @@ void PumpSwitch::_updateElapsedTime() {
     }
 }
 
+uint32_t PumpSwitch::_calculateElapsedSeconds(uint8_t* values) {
+    uint32_t seconds = 0UL;
+    seconds += values[PUMP_VALUES_SECONDS];
+    seconds += values[PUMP_VALUES_MINUTES] * 60UL;
+    seconds +=   values[PUMP_VALUES_HOURS] * 60UL * 60UL;
+    seconds +=    values[PUMP_VALUES_DAYS] * 60UL * 60UL * 24UL;
+
+    return seconds;
+}
+
 /*
  * Public
  */
 
-PumpSwitch::PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(), void (*stopCallback)()) {
-    _debouncer = Bounce(); 
-    _buttonPin = buttonPin;
-
-    _led = LED(ledPin);
-
-    _startCallback = startCallback;
-    _stopCallback = stopCallback;
-
-    _time = millis();
-
-    _startAttemptTime = 0;
-    _startAttemptCount = 0;
+PumpSwitch::PumpSwitch(bool master, 
+                       uint8_t buttonPin, 
+                       uint8_t ledPin, 
+                       void (*startCallback)(), 
+                       void (*stopCallback)()) :
+    _master(master),
+    _debouncer(Bounce()),
+    _buttonPin(buttonPin),
+    _led(LED(ledPin)),
+    _startCallback(startCallback),
+    _stopCallback(stopCallback),
+    _time(millis()),
+    _startAttemptTime(0UL),
+    _startAttemptCount(0) {
 
     // start with the pump off
     _off();
@@ -93,6 +103,14 @@ void PumpSwitch::setup() {
     _led.setup();
 }
 
+bool PumpSwitch::isMaster() {
+    return _master;
+}
+
+bool PumpSwitch::isSlave() {
+    return !isMaster();
+}
+
 bool PumpSwitch::isOn() {
     return _values[PUMP_VALUES_STATE] ? true : false;
 }
@@ -101,6 +119,11 @@ bool PumpSwitch::isOff() {
     return !isOn();
 }
 
+/*
+ * Either slave or master can update values to start/stop the pump,
+ * but only the master can correct (synchronize) the elapsed time.
+ *
+ */
 void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
     if (PUMP_VALUES_TOTAL != numValues) {
         Serial.println(F("[ERROR] updateValues: PUMP_VALUES_TOTAL != numValues"));
@@ -114,13 +137,13 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
         values[PUMP_VALUES_STATE] ? start(true) : stop(true);
     }
 
-    // and now copy all the values to match (especially the elapsed times)
-    for (uint8_t i = 0; i < numValues; i++) {
-        _values[i] = values[i];
+    if (isSlave()) {
+        for (uint8_t i = 0; i < numValues; i++) {
+            _values[i] = values[i];
+        }
+    } else {
+        Serial.println(F("Is Master, not updating values"));
     }
-
-    // then reset the elapsed time counter
-    _time = millis();
 }
 
 uint8_t* PumpSwitch::getValues() {
@@ -137,8 +160,12 @@ void PumpSwitch::updateSettings(uint8_t *settings, uint8_t numSettings) {
         return;
     }
 
-    for (uint8_t i = 0; i < numSettings; i++) {
-        _settings[i] = settings[i];
+    if (isSlave()) {
+        for (uint8_t i = 0; i < numSettings; i++) {
+            _settings[i] = settings[i];
+        }
+    } else {
+        Serial.println(F("Is Master, not updating settings"));
     }
 }
 
@@ -163,13 +190,7 @@ uint8_t PumpSwitch::getMinOffMinutes() {
 }
 
 uint32_t PumpSwitch::getElapsedSeconds() {
-    uint32_t seconds = 0UL;
-    seconds += _values[PUMP_VALUES_SECONDS];
-    seconds += _values[PUMP_VALUES_MINUTES] * 60UL;
-    seconds +=   _values[PUMP_VALUES_HOURS] * 60UL * 60UL;
-    seconds +=    _values[PUMP_VALUES_DAYS] * 60UL * 60UL * 24UL;
-
-    return seconds;
+    return _calculateElapsedSeconds(_values);
 }
 
 uint32_t PumpSwitch::getElapsedMinutes() {

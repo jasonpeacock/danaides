@@ -88,7 +88,7 @@ void setupWAN() {
 /*
  * Pump Switch (MAIN)
  */
-PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
+PumpSwitch pumpSwitch = PumpSwitch(true, BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
 Counter counter = Counter(0x70);
 
 // calculate the remaining pump run time and display it

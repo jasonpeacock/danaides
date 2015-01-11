@@ -15,8 +15,14 @@
  * Public
  */
 
-Counter::Counter(uint8_t address) : _counter(Adafruit_7segment()),
-                                    _address(address) {
+Counter::Counter() : 
+    _counter(Adafruit_7segment()),
+    _address(0) {
+}
+
+Counter::Counter(uint8_t address) : 
+    _counter(Adafruit_7segment()),
+    _address(address) {
 }
 
 Counter::~Counter() {

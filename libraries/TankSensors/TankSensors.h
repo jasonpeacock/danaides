@@ -75,7 +75,9 @@
 class TankSensors {
     private:
         uint8_t _sensors[SENSOR_TOTAL_INPUTS];
- 
+
+        bool _initialized;
+
     public:
         TankSensors();
         ~TankSensors();
@@ -87,6 +89,10 @@ class TankSensors {
         uint8_t* getSensorValues();
         uint8_t  getNumSensors();
 
+        uint8_t getNumFloatsPerTank();
+        uint8_t getNumValves();
+        uint8_t getNumTanks();
+
         // convert the raw sensor values to
         // their states, including any necessary
         // transforms of the values...
@@ -94,6 +100,8 @@ class TankSensors {
         bool getValveState(uint8_t valveNumber);
         bool getFloatState(uint8_t tankNumber, uint8_t floatNumber);
         bool getTankState(uint8_t tankNumber);
+
+        bool ready();
 
 };
 

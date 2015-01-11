@@ -12,8 +12,10 @@
 #include "Bounce2.h"
 
 // local
+#include "Bargraph.h"
 #include "Counter.h"
 #include "Danaides.h"
+#include "Display.h"
 #include "LED.h"
 #include "Message.h"
 #include "PumpSwitch.h"
@@ -134,40 +136,29 @@ void setupWAN() {
  * Base Station (MAIN)
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
-Message message = Message();
-Counter counter = Counter(0x72);
-
 TankSensors tankSensors = TankSensors();
-bool tankSensorsUpdated = false;
 
-uint32_t lastStatusTime = 0;
+Message message = Message(0x70, 0x71);
+Counter counter = Counter(0x72);
+Bargraph bar_1 = Bargraph(0x73);
+Bargraph bar_2 = Bargraph(0x74);
+Bargraph bar_3 = Bargraph(0x75);
 
-// calculate the remaining pump run time and display it
-void updateCounter() {
-    int32_t elapsedSeconds = pumpSwitch.getMaxOnMinutes() * 60UL - pumpSwitch.getElapsedSeconds();
-    counter.check(pumpSwitch.isOn(), elapsedSeconds);
-}
+Display display = Display(message, counter, bar_1, bar_2, bar_3);
 
 void enablePump() {
     Serial.println(F("Pump enabled!"));
     // send the current (updated) pump values
     transmit();
-    message.setMessage("PUMP ENABLED");
+    display.scroll("PUMP ENABLED");
 
-    // reset the status display so we can show our current
-    // message before it displays itself.
-    lastStatusTime = millis();
 }
 
 void disablePump() {
     Serial.println(F("Pump disabled!"));
     // send the current (updated) pump values
     transmit();
-    message.setMessage("PUMP DISABLED");
-
-    // reset the status display so we can show our current
-    // message before it displays itself.
-    lastStatusTime = millis();
+    display.scroll("PUMP DISABLED");
 }
 
 void receive() {
@@ -187,20 +178,17 @@ void receive() {
             Serial.println(F("New data from Remote Sensor"));
             if (tankSensors.getNumSensors() == data.getSize()) {
                 tankSensors.update(data);
-                tankSensorsUpdated = true;
                 Serial.println(F("Updated Tank Sensor values"));
-
-                // TODO update the display
             }
         } else if (wan.isPumpSwitchAddress(data.getAddress())) {
             Serial.println(F("New data from Pump Switch"));
             if (data.getSize() == pumpSwitch.getNumValues()) {
                 // update the local PumpSwitch object, the remote switch is always
                 // the authority for the values & settings
-                if (PUMP_SETTINGS_TOTAL == data.getSize()) {
+                if (pumpSwitch.getNumSettings() == data.getSize()) {
                     pumpSwitch.updateSettings(data.getData(), data.getSize());
                     Serial.println(F("Updated Pump Switch settings"));
-                } else if (PUMP_VALUES_TOTAL == data.getSize()) {
+                } else if (pumpSwitch.getNumValues() == data.getSize()) {
                     pumpSwitch.updateValues(data.getData(), data.getSize());
                     Serial.println(F("Updated Pump Switch values"));
                 }
@@ -244,42 +232,12 @@ void transmit() {
     Serial.flush();
 }
 
-void displayStatus() {
-    if (millis() - lastStatusTime > 15 * 1000UL) {
-        lastStatusTime = millis();
-
-        char state[4];
-        if (pumpSwitch.isOn()) {
-            snprintf(state, 4, "ON");
-        } else {
-            snprintf(state, 4, "OFF");
-        }
-
-        char duration_1[15];
-        char duration_2[15];
-        if (pumpSwitch.getValues()[PUMP_VALUES_DAYS]) {
-            snprintf(duration_1, 15, "%u DAYS", pumpSwitch.getValues()[PUMP_VALUES_DAYS]);
-            snprintf(duration_2, 15, "%u HOURS", pumpSwitch.getValues()[PUMP_VALUES_HOURS]);
-        } else if (pumpSwitch.getValues()[PUMP_VALUES_HOURS]) {
-            snprintf(duration_1, 15, "%u HOURS", pumpSwitch.getValues()[PUMP_VALUES_HOURS]);
-            snprintf(duration_2, 15, "%u MINUTES", pumpSwitch.getValues()[PUMP_VALUES_MINUTES]);
-        } else {
-            snprintf(duration_1, 15, "%u MINUTES", pumpSwitch.getValues()[PUMP_VALUES_MINUTES]);
-            snprintf(duration_2, 15, "%u SECONDS", pumpSwitch.getValues()[PUMP_VALUES_SECONDS]);
-        }
-
-        char status[100];
-        snprintf(status, 100, "PUMP STATUS %s %s %s", state, duration_1, duration_2);
-        message.setMessage(status);
-    }
-}
-
 uint32_t lastTankSensorCheckTime = 0UL;
 void evaluateTankSensors() {
     if (millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
         lastTankSensorCheckTime = millis();
 
-        if (!tankSensorsUpdated) {
+        if (!tankSensors.ready()) {
             Serial.println(F("TankSensors not updated yet"));
             return;
         }
@@ -323,9 +281,7 @@ void setup() {
 
     pumpSwitch.setup();
 
-    message.setup();
-
-    counter.setup();
+    display.setup();
 
     setupWAN();
 
@@ -338,7 +294,7 @@ void setup() {
     // TODO transmit any initial values
 
     // say something
-    message.setMessage("HELLO");
+    display.scroll("HELLO");
 
     // play a sound
     //playSetupMelody();
@@ -350,7 +306,7 @@ void loop() {
     pumpSwitch.check();
     wan.check();
 
-    message.check();
+    display.check(pumpSwitch, tankSensors);
 
     if (evaluateSwitch.update()) {
         // switch was switched
@@ -359,12 +315,8 @@ void loop() {
         Serial.println(evaluateEnabled);
     }
 
-    updateCounter();
-
     receive();
 
     evaluateTankSensors();
-    
-    displayStatus();
 }
 

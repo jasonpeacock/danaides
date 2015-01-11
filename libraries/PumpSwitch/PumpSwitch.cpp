@@ -72,7 +72,7 @@ PumpSwitch::PumpSwitch(uint8_t buttonPin, uint8_t ledPin, void (*startCallback)(
 
     _time = millis();
 
-    _lastStartAttemptTime = 0;
+    _startAttemptTime = 0;
     _startAttemptCount = 0;
 
     // start with the pump off
@@ -176,6 +176,22 @@ uint32_t PumpSwitch::getElapsedMinutes() {
     return getElapsedSeconds() / 60L;
 }
 
+uint8_t PumpSwitch::getValueSeconds() {
+    return _values[PUMP_VALUES_SECONDS];
+}
+
+uint8_t PumpSwitch::getValueMinutes() {
+    return _values[PUMP_VALUES_MINUTES];
+}
+
+uint8_t PumpSwitch::getValueHours() {
+    return _values[PUMP_VALUES_HOURS];
+}
+
+uint8_t PumpSwitch::getValueDays() {
+    return _values[PUMP_VALUES_DAYS];
+}
+
 /*
  * Check how long the pump has been running and 
  * stop the pump if it exceeds the limit.
@@ -224,10 +240,10 @@ bool PumpSwitch::start(bool force) {
 
     // don't start the pump if it hasn't rested long enough
     if (getMinOffMinutes() > getElapsedMinutes()) {
-        if (!_lastStartAttemptTime || millis() - _lastStartAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
+        if (!_startAttemptTime || millis() - _startAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
             _startAttemptCount++;
         } else {
-            _lastStartAttemptTime = millis();
+            _startAttemptTime = millis();
             _startAttemptCount = 1;
         }
 
@@ -242,12 +258,12 @@ bool PumpSwitch::start(bool force) {
             return false;
         } else {
             Serial.println(F("Pump override enabled!"));
-
-            // reset the attempt counter/time
-            _lastStartAttemptTime = 0;
-            _startAttemptCount = 0;
         }
     }
+
+    // pump is starting, reset the attempt counter/time
+    _startAttemptTime = 0;
+    _startAttemptCount = 0;
 
     _led.thinking();
 

@@ -15,19 +15,32 @@
  * Public
  */
 
-Message::Message() : _alpha_1(Adafruit_AlphaNum4()), 
-                     _alpha_2(Adafruit_AlphaNum4()),
-                     _messageSize(0),
-                     _lastScrollTime(0UL),
-                     _scrollPosition(0) {
+Message::Message() : 
+    _alpha_1(Adafruit_AlphaNum4()), 
+    _alpha_2(Adafruit_AlphaNum4()),
+    _address_1(0),
+    _address_2(0),
+    _messageSize(0),
+    _lastScrollTime(0UL),
+    _scrollPosition(0) {
+}
+
+Message::Message(uint8_t address_1, uint8_t address_2) : 
+    _alpha_1(Adafruit_AlphaNum4()), 
+    _alpha_2(Adafruit_AlphaNum4()),
+    _address_1(address_1),
+    _address_2(address_2),
+    _messageSize(0),
+    _lastScrollTime(0UL),
+    _scrollPosition(0) {
 }
 
 Message::~Message() {
 }
 
 void Message::setup() {
-    _alpha_1.begin(MESSAGE_ADDRESS_ALPHA_1);
-    _alpha_2.begin(MESSAGE_ADDRESS_ALPHA_2);
+    _alpha_1.begin(_address_1);
+    _alpha_2.begin(_address_2);
 
     reset();
 }
@@ -51,9 +64,9 @@ void Message::reset() {
 
 void Message::setMessage(char* message) {
     // copy the message
-    strncpy(_message, message, 249);
+    strncpy(_message, message, MESSAGE_MAX_SIZE - 1);
     // just in case message was too large
-    _message[249] = '\0';
+    _message[MESSAGE_MAX_SIZE - 1] = '\0';
 
     _messageSize = strlen(_message);
 

@@ -17,6 +17,7 @@ class Counter {
         uint8_t _address;
 
     public:
+        Counter();
         Counter(uint8_t address);
         ~Counter();
 

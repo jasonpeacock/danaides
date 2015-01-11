@@ -13,7 +13,8 @@
  * Public
  */
 
-TankSensors::TankSensors() {
+TankSensors::TankSensors() :
+    _initialized(false) {
 }
 
 TankSensors::~TankSensors() {
@@ -27,6 +28,22 @@ uint8_t TankSensors::getNumSensors() {
     return SENSOR_TOTAL_INPUTS;
 }
 
+uint8_t TankSensors::getNumFloatsPerTank() {
+    return SENSOR_TOTAL_FLOATS_PER_TANK;
+}
+
+uint8_t TankSensors::getNumValves() {
+    return SENSOR_TOTAL_VALVES;
+}
+
+uint8_t TankSensors::getNumTanks() {
+    return SENSOR_TOTAL_TANKS;
+}
+
+bool TankSensors::ready() {
+    return _initialized;
+}
+
 bool TankSensors::update(Data &data) {
     bool changed = false;
     for (uint8_t i = 0; i < data.getSize(); i++) {
@@ -36,6 +53,8 @@ bool TankSensors::update(Data &data) {
 
         _sensors[i] = data.getData()[i];
     }
+
+    _initialized = true;
 
     return changed;
 }

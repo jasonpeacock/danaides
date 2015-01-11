@@ -48,7 +48,7 @@ class PumpSwitch {
 
         uint32_t _time;
 
-        uint32_t _lastStartAttemptTime;
+        uint32_t _startAttemptTime;
         uint8_t _startAttemptCount;
 
         uint32_t _msToMinutes(uint32_t ms);
@@ -72,6 +72,10 @@ class PumpSwitch {
         void     updateValues(uint8_t *values, uint8_t numValues);
         uint8_t* getValues();
         uint8_t  getNumValues();
+        uint8_t  getValueSeconds();
+        uint8_t  getValueMinutes();
+        uint8_t  getValueHours();
+        uint8_t  getValueDays();
         uint32_t getElapsedSeconds();
         uint32_t getElapsedMinutes();
 

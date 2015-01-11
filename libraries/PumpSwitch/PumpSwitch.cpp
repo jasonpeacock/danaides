@@ -169,6 +169,22 @@ void PumpSwitch::updateSettings(uint8_t *settings, uint8_t numSettings) {
     }
 }
 
+void PumpSwitch::setLongOffMinutes(bool enabled) {
+    if (enabled) {
+        _settings[PUMP_SETTINGS_MIN_OFF_MINUTES] = PUMP_LONG_MIN_OFF_MINUTES;
+    } else {
+        _settings[PUMP_SETTINGS_MIN_OFF_MINUTES] = PUMP_DEFAULT_MIN_OFF_MINUTES;
+    }
+}
+
+void PumpSwitch::setLongOnMinutes(bool enabled) {
+    if (enabled) {
+        _settings[PUMP_SETTINGS_MAX_ON_MINUTES] = PUMP_LONG_MAX_ON_MINUTES;
+    } else {
+        _settings[PUMP_SETTINGS_MAX_ON_MINUTES] = PUMP_DEFAULT_MAX_ON_MINUTES;
+    }
+}
+
 uint8_t* PumpSwitch::getSettings() {
     return _settings;
 }

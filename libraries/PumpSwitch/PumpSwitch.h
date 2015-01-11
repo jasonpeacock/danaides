@@ -94,6 +94,9 @@ class PumpSwitch {
         uint8_t  getMinOnMinutes();
         uint8_t  getMinOffMinutes();
 
+        void setLongOffMinutes(bool enabled);
+        void setLongOnMinutes(bool enabled);
+
         bool start(bool force = false);
         bool  stop(bool force = false);
 };

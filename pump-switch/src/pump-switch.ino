@@ -14,6 +14,7 @@
 
 // third-party
 #include "Adafruit_LEDBackpack.h"
+#include "Bounce2.h"
 
 // local
 #include "Counter.h"
@@ -36,13 +37,13 @@
 #define UNUSED_PIN_6   6           // unused
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define UNUSED_PIN_8   8           // unused
-#define UNUSED_PIN_9   9           // unused
-#define UNUSED_PIN_10 10           // unused
-#define UNUSED_PIN_11 11           // unused
-#define UNUSED_PIN_12 12           // unused
+#define SHORT_ONTIME_LED   9       // Short OnTime Green LED  (always on)
+#define LONG_ONTIME_LED    10      // Long OnTime Green LED
+#define ONTIME_SWITCH_PIN  11      // OnTime Switch
+#define SHORT_OFFTIME_LED  12      // Short OffTime Red LED (always on)
 #define STATUS_LED    13           // XBee Status LED
-#define UNUSED_PIN_14 14           // unused    (Analog 0)
-#define UNUSED_PIN_15 15           // unused    (Analog 1)
+#define LONG_OFFTIME_LED   14      // Long OffTime Red LED (Analog 0)
+#define OFFTIME_SWITCH_PIN 15      // OffTime Switch   (Analog 1)
 #define SS_TX_PIN     16           // XBee RX   (Analog 2)
 #define SS_RX_PIN     17           // XBee TX   (Analog 3)
 #define I2C_DATA_PIN  18           // I2C Data  (Analog 4)
@@ -55,13 +56,6 @@
 void setupUnusedPins() {
     pinMode(UNUSED_PIN_6,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_8,  INPUT_PULLUP);
-    pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
-    pinMode(UNUSED_PIN_10, INPUT_PULLUP);
-    pinMode(UNUSED_PIN_11, INPUT_PULLUP);
-    pinMode(UNUSED_PIN_12, INPUT_PULLUP);
-
-    pinMode(UNUSED_PIN_14, INPUT_PULLUP);
-    pinMode(UNUSED_PIN_15, INPUT_PULLUP);
 }
 
 /*
@@ -90,6 +84,66 @@ void setupWAN() {
  */
 PumpSwitch pumpSwitch = PumpSwitch(true, BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
 Counter counter = Counter(0x70);
+
+/*
+ * Settings Switches
+ */
+Bounce onTimeSwitch = Bounce();
+Bounce offTimeSwitch = Bounce();
+bool longOnTimeEnabled = false;
+bool longOffTimeEnabled = false;
+
+void settingsSwitchesCheck(bool force = false) {
+    if (force || onTimeSwitch.update()) {
+        // switch was switched
+        longOnTimeEnabled = onTimeSwitch.read();
+        digitalWrite(LONG_ONTIME_LED, longOnTimeEnabled);
+
+        pumpSwitch.setLongOnMinutes(longOnTimeEnabled);
+
+        Serial.print(F("OnTime switch updated: "));
+        Serial.println(longOnTimeEnabled);
+    }
+
+    if (force || offTimeSwitch.update()) {
+        // switch was switched
+        longOffTimeEnabled = offTimeSwitch.read();
+        digitalWrite(LONG_OFFTIME_LED, longOffTimeEnabled);
+
+        pumpSwitch.setLongOffMinutes(longOffTimeEnabled);
+
+        Serial.print(F("OffTime switch updated: "));
+        Serial.println(longOffTimeEnabled);
+    }
+}
+
+void setupSettingsSwitches() {
+    pinMode(SHORT_ONTIME_LED, OUTPUT);
+    digitalWrite(SHORT_ONTIME_LED, HIGH);
+
+    pinMode(LONG_ONTIME_LED,  OUTPUT);
+    digitalWrite(LONG_ONTIME_LED, LOW);
+
+    pinMode(ONTIME_SWITCH_PIN, INPUT_PULLUP);
+
+    onTimeSwitch.attach(ONTIME_SWITCH_PIN);
+    onTimeSwitch.interval(5); // ms
+    onTimeSwitch.update();
+
+    pinMode(SHORT_OFFTIME_LED, OUTPUT);
+    digitalWrite(SHORT_OFFTIME_LED, HIGH);
+
+    pinMode(LONG_OFFTIME_LED,  OUTPUT);
+    digitalWrite(LONG_OFFTIME_LED, LOW);
+
+    pinMode(OFFTIME_SWITCH_PIN, INPUT_PULLUP);
+
+    offTimeSwitch.attach(OFFTIME_SWITCH_PIN);
+    offTimeSwitch.interval(5); // ms
+    offTimeSwitch.update();
+
+    settingsSwitchesCheck(true);
+}
 
 // calculate the remaining pump run time and display it
 void updateCounter() {
@@ -214,6 +268,8 @@ void setup() {
 
     pumpSwitch.setup();
     
+    setupSettingsSwitches();
+
     counter.setup();
 
     setupWAN();
@@ -222,6 +278,8 @@ void setup() {
 }
 
 void loop() {
+    settingsSwitchesCheck();
+
     pumpSwitch.check();
 
     updateCounter();

@@ -78,6 +78,14 @@ void setupEvaluate() {
     evaluateEnabled = evaluateSwitch.read();
 }
 
+void evaluateSwitchCheck() {
+    if (evaluateSwitch.update()) {
+        // switch was switched
+        evaluateEnabled = evaluateSwitch.read();
+        Serial.print(F("Evaluate switch updated: "));
+        Serial.println(evaluateEnabled);
+    }
+}
 
 /*
  * Piezo Speaker
@@ -182,16 +190,14 @@ void receive() {
             }
         } else if (wan.isPumpSwitchAddress(data.getAddress())) {
             Serial.println(F("New data from Pump Switch"));
-            if (data.getSize() == pumpSwitch.getNumValues()) {
-                // update the local PumpSwitch object, the remote switch is always
-                // the authority for the values & settings
-                if (pumpSwitch.getNumSettings() == data.getSize()) {
-                    pumpSwitch.updateSettings(data.getData(), data.getSize());
-                    Serial.println(F("Updated Pump Switch settings"));
-                } else if (pumpSwitch.getNumValues() == data.getSize()) {
-                    pumpSwitch.updateValues(data.getData(), data.getSize());
-                    Serial.println(F("Updated Pump Switch values"));
-                }
+            // update the local PumpSwitch object, the remote switch is always
+            // the authority for the values & settings
+            if (pumpSwitch.getNumSettings() == data.getSize()) {
+                pumpSwitch.updateSettings(data.getData(), data.getSize());
+                Serial.println(F("Updated Pump Switch settings"));
+            } else if (pumpSwitch.getNumValues() == data.getSize()) {
+                pumpSwitch.updateValues(data.getData(), data.getSize());
+                Serial.println(F("Updated Pump Switch values"));
             }
         }
 
@@ -304,12 +310,7 @@ void loop() {
 
     display.check(pumpSwitch, tankSensors);
 
-    if (evaluateSwitch.update()) {
-        // switch was switched
-        evaluateEnabled = evaluateSwitch.read();
-        Serial.print(F("Evaluate switch updated: "));
-        Serial.println(evaluateEnabled);
-    }
+    evaluateSwitchCheck();
 
     receive();
 

@@ -140,9 +140,9 @@ TankSensors tankSensors = TankSensors();
 
 Message message = Message(0x70, 0x71);
 Counter counter = Counter(0x72);
-Bargraph bar_1 = Bargraph(0x73);
-Bargraph bar_2 = Bargraph(0x74);
-Bargraph bar_3 = Bargraph(0x75);
+Bargraph bar_1 = Bargraph(0x73, tankSensors.getNumFloatsPerTank());
+Bargraph bar_2 = Bargraph(0x74, tankSensors.getNumFloatsPerTank());
+Bargraph bar_3 = Bargraph(0x75, tankSensors.getNumFloatsPerTank());
 
 Display display = Display(message, counter, bar_1, bar_2, bar_3);
 
@@ -288,10 +288,6 @@ void setup() {
     setupEvaluate();
 
     Serial.println(F("setup() completed!"));
-
-    Serial.println(F("Performing initial update & transmit"));
-
-    // TODO transmit any initial values
 
     // say something
     display.scroll("HELLO");

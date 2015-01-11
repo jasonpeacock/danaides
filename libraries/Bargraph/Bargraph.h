@@ -19,11 +19,13 @@ class Bargraph {
         Adafruit_24bargraph _bar;
         uint8_t _address;
 
+        uint8_t _totalBlocks;
+
         uint32_t _lastUpdateTime;
 
     public:
         Bargraph();
-        Bargraph(uint8_t address);
+        Bargraph(uint8_t address, uint8_t totalBlocks);
         ~Bargraph();
 
         void setup();
@@ -31,7 +33,7 @@ class Bargraph {
 
         void reset();
 
-        void setBlock(bool state, bool fill, uint8_t block, uint8_t totalBlocks);
+        void setBlock(bool state, bool fill, uint8_t block);
 };
 
 #endif //Bargraph_h

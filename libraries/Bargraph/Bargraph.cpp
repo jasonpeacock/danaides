@@ -18,12 +18,14 @@
 Bargraph::Bargraph() : 
     _bar(Adafruit_24bargraph()),
     _address(0),
+    _totalBlocks(0),
     _lastUpdateTime(0UL) {
 }
 
-Bargraph::Bargraph(uint8_t address) : 
+Bargraph::Bargraph(uint8_t address, uint8_t totalBlocks) : 
     _bar(Adafruit_24bargraph()),
     _address(address),
+    _totalBlocks(totalBlocks),
     _lastUpdateTime(0UL) {
 }
 
@@ -48,23 +50,29 @@ void Bargraph::check() {
     }
 } 
 
-void Bargraph::setBlock(bool state, bool fill, uint8_t block, uint8_t totalBlocks) {
-    uint8_t blockSize = (uint8_t)(BARGRAPH_TOTAL_BARS / totalBlocks);
+void Bargraph::setBlock(bool state, bool fill, uint8_t block) {
+    uint8_t blockSize = (uint8_t)(BARGRAPH_TOTAL_BARS / _totalBlocks);
     uint8_t startBlock = 0 + block * blockSize;
     uint8_t endBlock = startBlock + blockSize;
 
     // fill in the bar section (or not)
     for (uint8_t i = startBlock; i < endBlock; i++) {
-        if (fill) {
+        if (fill && state) {
+            // make the fill green if it's ON
+            _bar.setBar(i, LED_GREEN);
+        } else if (fill) {
+            // make it yellow if it's
+            // below an ON block
             _bar.setBar(i, LED_YELLOW);
         } else {
+            // leave it empty if above/none ON blocks
             _bar.setBar(i, LED_OFF);
         }
     }
 
     // color the marker (end of block)
     if (state) {
-        _bar.setBar(startBlock, LED_GREEN);
+        _bar.setBar(startBlock, LED_YELLOW);
     } else {
         _bar.setBar(startBlock, LED_RED);
     }

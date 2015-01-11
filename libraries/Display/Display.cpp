@@ -27,7 +27,7 @@ void Display::_updateBars(TankSensors &tankSensors) {
                 if (state) {
                     fill = true;
                 }
-                _bar[t].setBlock(state, fill, f, tankSensors.getNumFloatsPerTank());
+                _bar[t].setBlock(state, fill, f);
             }
         }
     } 

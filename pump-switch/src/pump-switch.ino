@@ -67,10 +67,6 @@ void setupUnusedPins() {
  * XBee
  */ 
 
-// how often to transmit values
-// TODO update with proper value...
-#define TRANSMIT_INTERVAL_SECONDS 10
-
 // XBee will use SoftwareSerial for communications, reserve the HardwareSerial
 // for debugging w/FTDI interface.
 SoftwareSerial ss(SS_RX_PIN, SS_TX_PIN);
@@ -150,7 +146,7 @@ void receive() {
 uint32_t lastTransmitTime = 0;
 bool lastTransmittedSettings = false;
 void transmit(bool forceValues = false) {
-    if (forceValues || !lastTransmitTime || millis() - lastTransmitTime > TRANSMIT_INTERVAL_SECONDS * 1000UL) {
+    if (forceValues || !lastTransmitTime || millis() - lastTransmitTime > PUMP_SWITCH_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         lastTransmitTime = millis();
 
         Serial.println(F("transmitting..."));

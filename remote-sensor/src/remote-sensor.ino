@@ -124,6 +124,9 @@ void pinInterrupt() {
 void setupInterrupt() {
     pinMode(INTERRUPT_PIN, INPUT_PULLUP);
     attachInterrupt(INTERRUPT, pinInterrupt, CHANGE);
+
+    // need to reset after enabling the interrupt
+    interruptedByPin = false;
 }
 
 /*
@@ -207,7 +210,6 @@ void setup() {
     setupUnusedPins();
 
     setupInterrupt();
-    interruptedByPin = false;
 
     setupSleep();
 

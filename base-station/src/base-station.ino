@@ -10,6 +10,7 @@
 
 // third-party
 #include "Adafruit_LEDBackpack.h"
+#include "Bounce2.h"
 
 // local
 #include "Danaides.h"
@@ -30,7 +31,7 @@
 
 #define BUTTON_PIN     3           // Momentary switch
 #define BUTTON_LED     4           // Momentary switch LED (blue)
-#define UNUSED_PIN_5   5           // unused
+#define EVALUATE_PIN   5           // Switch to allow BaseStation to manager PumpSwitch
 #define UNUSED_PIN_6   6           // unused
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define UNUSED_PIN_8   8           // unused
@@ -51,8 +52,6 @@
  * w/internal PULLUP enabled to prevent power drain.
  */
 void setupUnusedPins() {
-    pinMode(UNUSED_PIN_5,  INPUT_PULLUP);
-    pinMode(UNUSED_PIN_6,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_8,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_10, INPUT_PULLUP);
@@ -61,6 +60,21 @@ void setupUnusedPins() {
 
     pinMode(UNUSED_PIN_14, INPUT_PULLUP);
 }
+
+/*
+ * Evaluate Switch
+ */
+Bounce evaluateSwitch = Bounce();
+bool evaluateEnabled = true;
+void setupEvaluate() {
+    pinMode(EVALUATE_PIN, INPUT_PULLUP);
+    evaluateSwitch.attach(EVALUATE_PIN);
+    evaluateSwitch.interval(5); // ms
+
+    evaluateSwitch.update();
+    evaluateEnabled = evaluateSwitch.read();
+}
+
 
 /*
  * Piezo Speaker
@@ -320,9 +334,8 @@ void displayStatus() {
     }
 }
 
-#define EVALUATE_TANK_SENSOR_INTERVAL_MINUTES 1
 uint32_t lastTankSensorCheckTime = 0UL;
-void checkTankSensors() {
+void evaluateTankSensors() {
     if (millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
         lastTankSensorCheckTime = millis();
 
@@ -336,6 +349,11 @@ void checkTankSensors() {
         Serial.print(tankSensors.getTankState(1));
         Serial.print(F(" Pump state: "));
         Serial.println(pumpSwitch.isOn());
+
+        if (!evaluateEnabled) {
+            Serial.println(F("Evaluate disabled, not doing anything"));
+            return;
+        }
 
         if (tankSensors.getTankState(1) && pumpSwitch.isOn()) {
             // tank #1 is FULL and pump is ON, turn the pump OFF
@@ -369,6 +387,8 @@ void setup() {
 
     setupWAN();
 
+    setupEvaluate();
+
     Serial.println(F("setup() completed!"));
 
     Serial.println(F("Performing initial update & transmit"));
@@ -387,11 +407,20 @@ void setup() {
 void loop() {
     pumpSwitch.check();
     wan.check();
+
     updateScrollMessage();
+
+    if (evaluateSwitch.update()) {
+        // switch was switched
+        evaluateEnabled = evaluateSwitch.read();
+        Serial.print(F("Evaluate switch updated: "));
+        Serial.println(evaluateEnabled);
+    }
 
     receive();
 
-    checkTankSensors();
+    evaluateTankSensors();
     
     displayStatus();
 }
+

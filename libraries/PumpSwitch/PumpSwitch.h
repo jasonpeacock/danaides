@@ -8,6 +8,7 @@
 #include "Bounce2.h"
 
 // local
+#include "Danaides.h"
 #include "Data.h"
 #include "LED.h"
 
@@ -15,19 +16,7 @@
  * Constants
  */
 
-//XXX adjust these to actual values 
-#define PUMP_DEFAULT_MAX_ON_MINUTES   2 // 60
-#define PUMP_DEFAULT_MIN_ON_MINUTES   1 // 10 (?)
-#define PUMP_DEFAULT_MIN_OFF_MINUTES  2 // 60
-
-#define PUMP_START_ATTEMPTS_WINDOW_SECONDS 60
-#define PUMP_MIN_START_ATTEMPTS 3
-
-/*
- * Array Indexes
- */
-
-// pump switch dynamic data
+// pump switch dynamic data indexes
 #define PUMP_VALUES_STATE   0
 #define PUMP_VALUES_SECONDS 1
 #define PUMP_VALUES_MINUTES 2
@@ -36,7 +25,7 @@
 
 #define PUMP_VALUES_TOTAL 5
 
-// pump switch configurable data
+// pump switch configurable data indexes
 #define PUMP_SETTINGS_MAX_ON_MINUTES   0
 #define PUMP_SETTINGS_MIN_ON_MINUTES   1
 #define PUMP_SETTINGS_MIN_OFF_MINUTES  2

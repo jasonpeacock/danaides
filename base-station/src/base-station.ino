@@ -12,6 +12,7 @@
 #include "Bounce2.h"
 
 // local
+#include "Counter.h"
 #include "Danaides.h"
 #include "LED.h"
 #include "Message.h"
@@ -134,11 +135,18 @@ void setupWAN() {
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
 Message message = Message();
+Counter counter = Counter(0x72);
 
 TankSensors tankSensors = TankSensors();
 bool tankSensorsUpdated = false;
 
 uint32_t lastStatusTime = 0;
+
+// calculate the remaining pump run time and display it
+void updateCounter() {
+    int32_t elapsedSeconds = pumpSwitch.getMaxOnMinutes() * 60UL - pumpSwitch.getElapsedSeconds();
+    counter.check(pumpSwitch.isOn(), elapsedSeconds);
+}
 
 void enablePump() {
     Serial.println(F("Pump enabled!"));
@@ -317,6 +325,8 @@ void setup() {
 
     message.setup();
 
+    counter.setup();
+
     setupWAN();
 
     setupEvaluate();
@@ -348,6 +358,8 @@ void loop() {
         Serial.print(F("Evaluate switch updated: "));
         Serial.println(evaluateEnabled);
     }
+
+    updateCounter();
 
     receive();
 

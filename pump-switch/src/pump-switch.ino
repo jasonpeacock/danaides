@@ -16,6 +16,7 @@
 #include "Adafruit_LEDBackpack.h"
 
 // local
+#include "Counter.h"
 #include "Danaides.h"
 #include "LED.h"
 #include "PumpSwitch.h"
@@ -85,20 +86,16 @@ void setupWAN() {
 }
 
 /*
- * Adafruit 7-segment LED Numeric display
- */
-Adafruit_7segment counter = Adafruit_7segment();
-
-void setupCounter() {
-    counter.begin(0x70); // default address for first/single display
-    counter.clear();
-    counter.writeDisplay();
-}
-
-/*
  * Pump Switch (MAIN)
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enableRelay, disableRelay);
+Counter counter = Counter(0x70);
+
+// calculate the remaining pump run time and display it
+void updateCounter() {
+    int32_t elapsedSeconds = pumpSwitch.getMaxOnMinutes() * 60UL - pumpSwitch.getElapsedSeconds();
+    counter.check(pumpSwitch.isOn(), elapsedSeconds);
+}
 
 void receive() {
     uint32_t lastReceiveTime = millis();
@@ -205,54 +202,6 @@ void disableRelay() {
     transmit(true);
 }
 
-/*
- * Calculate the remaining time since the pump started, then update 
- * the 7-segment display if the pump is running with the elapsed "MIN:SEC"
- *
- * The 7-segment display always uses elapsedMinutes and never tries
- * to show hours b/c the pump should never be on continously longer
- * then 60-90minutes.
- */
-void updateCounter() {
-    if (pumpSwitch.isOn()) {
-        uint32_t maxSeconds = pumpSwitch.getMaxOnMinutes() * 60UL;
-
-        // flash the colon every 0.5s
-        bool drawColon = (millis() % 1000 < 500) ? true : false;
-        counter.drawColon(drawColon);
-
-        // setup the countdoun value, use not-unsigned int so that we know
-        // if it's gone negative (it's possible to out-of-sync by a little,
-        // need to handle that edge case...)
-        int32_t elapsedSeconds = maxSeconds - pumpSwitch.getElapsedSeconds();
-
-        if (0 < elapsedSeconds) {
-            uint32_t elapsedMinutes = (uint32_t)(elapsedSeconds / 60);
-            counter.writeDigitNum(0, elapsedMinutes / 10, false);
-            counter.writeDigitNum(1, elapsedMinutes % 10, false);
-
-            uint32_t remainderSeconds = elapsedSeconds % 60;
-            counter.writeDigitNum(3, remainderSeconds / 10, false);
-            counter.writeDigitNum(4, remainderSeconds % 10, false);
-        } else {
-            // if the count goes negative, start flashing "00:00"
-            if (drawColon) {
-                counter.writeDigitNum(0, 0, false);
-                counter.writeDigitNum(1, 0, false);
-                counter.writeDigitNum(3, 0, false);
-                counter.writeDigitNum(4, 0, false);
-            } else {
-                counter.clear();
-            }
-        }
-    } else {
-        // clear the display
-        counter.clear();
-    }
-
-    counter.writeDisplay();
-}
-
 void setup() {
     // hardware serial is used for FTDI debugging
     Serial.begin(9600);
@@ -264,8 +213,8 @@ void setup() {
     setupRelay();
 
     pumpSwitch.setup();
-
-    setupCounter();
+    
+    counter.setup();
 
     setupWAN();
 

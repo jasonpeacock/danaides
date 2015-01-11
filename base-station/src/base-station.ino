@@ -9,12 +9,12 @@
 #include <SoftwareSerial.h>
 
 // third-party
-#include "Adafruit_LEDBackpack.h"
 #include "Bounce2.h"
 
 // local
 #include "Danaides.h"
 #include "LED.h"
+#include "Message.h"
 #include "PumpSwitch.h"
 #include "TankSensors.h"
 #include "WAN.h"
@@ -130,78 +130,10 @@ void setupWAN() {
 }
 
 /*
- * Adafruit 7-segment LED Numeric display
- */
-Adafruit_AlphaNum4 alpha = Adafruit_AlphaNum4();
-
-void setupAlpha() {
-    alpha.begin(0x70); // default address for first/single display
-    alpha.clear();
-    alpha.writeDisplay();
-}
-
-#define SCROLL_CHAR_COUNT 4
-uint32_t lastScrollTime = 0UL;
-uint8_t scrollPosition = 0;
-char scrollBuffer[SCROLL_CHAR_COUNT] = {' ', ' ', ' ', ' '};
-char scrollMessage[250];
-void setScrollMessage(char* message) {
-    // copy the message
-    strncpy(scrollMessage, message, 249);
-    // just in case message was larger...
-    scrollMessage[249] = '\0';
-
-    // clear the buffer
-    for (uint8_t i = 0; i < SCROLL_CHAR_COUNT; i++) {
-        scrollBuffer[i] = ' ';
-    }
-
-    // clear the display
-    alpha.clear();
-    alpha.writeDisplay();
-
-    // reset the vars
-    scrollPosition = 0;
-    lastScrollTime = 0UL;
-}
-
-#define SCROLL_DELAY_MILLIS 200UL
-void updateScrollMessage() {
-    uint8_t size = strlen(scrollMessage);
-    if (size + SCROLL_CHAR_COUNT <= scrollPosition) {
-        // everything has been scrolled, nothing to do
-        return;
-    }
-
-    if (millis() - lastScrollTime > SCROLL_DELAY_MILLIS) {
-        // scroll the message off the display by including
-        // 4 extra empty chars
-        char c = scrollMessage[scrollPosition];
-        if (size <= scrollPosition) {
-            c = ' ';
-        }
-
-        for (uint8_t i = 0; i < SCROLL_CHAR_COUNT; i++) {
-            if (i == SCROLL_CHAR_COUNT - 1) {
-                scrollBuffer[i] = c;
-            } else {
-                scrollBuffer[i] = scrollBuffer[i + 1];
-            }
-
-            alpha.writeDigitAscii(i, scrollBuffer[i]);
-        }
-
-        alpha.writeDisplay();
-
-        lastScrollTime = millis();
-        scrollPosition++;
-    }
-}
-
-/*
  * Base Station (MAIN)
  */
 PumpSwitch pumpSwitch = PumpSwitch(BUTTON_PIN, BUTTON_LED, enablePump, disablePump);
+Message message = Message();
 
 TankSensors tankSensors = TankSensors();
 bool tankSensorsUpdated = false;
@@ -212,7 +144,7 @@ void enablePump() {
     Serial.println(F("Pump enabled!"));
     // send the current (updated) pump values
     transmit();
-    setScrollMessage("PUMP ENABLED");
+    message.setMessage("PUMP ENABLED");
 
     // reset the status display so we can show our current
     // message before it displays itself.
@@ -223,7 +155,7 @@ void disablePump() {
     Serial.println(F("Pump disabled!"));
     // send the current (updated) pump values
     transmit();
-    setScrollMessage("PUMP DISABLED");
+    message.setMessage("PUMP DISABLED");
 
     // reset the status display so we can show our current
     // message before it displays itself.
@@ -328,9 +260,9 @@ void displayStatus() {
             snprintf(duration_2, 15, "%u SECONDS", pumpSwitch.getValues()[PUMP_VALUES_SECONDS]);
         }
 
-        char message[100];
-        snprintf(message, 100, "PUMP STATUS %s %s %s", state, duration_1, duration_2);
-        setScrollMessage(message);
+        char status[100];
+        snprintf(status, 100, "PUMP STATUS %s %s %s", state, duration_1, duration_2);
+        message.setMessage(status);
     }
 }
 
@@ -383,7 +315,7 @@ void setup() {
 
     pumpSwitch.setup();
 
-    setupAlpha();
+    message.setup();
 
     setupWAN();
 
@@ -396,7 +328,7 @@ void setup() {
     // TODO transmit any initial values
 
     // say something
-    setScrollMessage("HELLO");
+    message.setMessage("HELLO");
 
     // play a sound
     //playSetupMelody();
@@ -408,7 +340,7 @@ void loop() {
     pumpSwitch.check();
     wan.check();
 
-    updateScrollMessage();
+    message.check();
 
     if (evaluateSwitch.update()) {
         // switch was switched

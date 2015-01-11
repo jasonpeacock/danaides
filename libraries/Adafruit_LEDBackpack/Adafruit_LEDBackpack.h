@@ -1,3 +1,6 @@
+#ifndef Adafruit_LEDBackpack_h
+#define Adafruit_LEDBackpack_h
+
 /*************************************************** 
   This is a library for our I2C LED Backpacks
 
@@ -158,3 +161,5 @@ class Adafruit_7segment : public Adafruit_LEDBackpack {
  private:
   uint8_t position;
 };
+
+#endif //Adafruit_LEDBackpack_h

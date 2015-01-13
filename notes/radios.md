@@ -47,9 +47,6 @@ Has "R" written on radio w/marker.
 * AP: 2
 * SM: 1 (Sleep Mode = Pin Hibernate)
 * D0: 0 (Disabled, was Commissioning)
-* D5: 0 (Disabled, was Associated indicator) ***TODO***
-* P0: 0 (Disabled, was RSSI PWM Output) ***TODO***
-* PR: Set internal PullUp for unused pins? ***TODO***
 * VR: 29A7 (Firmware Version)
 * HV: 1E46 (Hardware Version)
 

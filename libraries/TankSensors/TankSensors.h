@@ -31,7 +31,7 @@
 #define TANK_2_FLOAT_5 11
 #define TANK_2_FLOAT_6 12
 
-// array offset such that Tank #1, Float #1 => index 1
+// array offset such that Tank #2, Float #1 => index 7
 #define TANK_2_FLOAT_OFFSET 6
 
 #define TANK_3_FLOAT_1 13
@@ -41,7 +41,7 @@
 #define TANK_3_FLOAT_5 17
 #define TANK_3_FLOAT_6 18
 
-// array offset such that Tank #1, Float #1 => index 1
+// array offset such that Tank #3, Float #1 => index 13
 #define TANK_3_FLOAT_OFFSET 12
 
 #define VALVE_POSITION_1 19
@@ -57,20 +57,9 @@
 #define SENSOR_TOTAL_TANKS  3
 #define SENSOR_TOTAL_FLOATS_PER_TANK 6
 
-//XXX remove the last shift register, we don't
-//need all these extra inputs?
-#define UNUSED_INPUT_1   24
-#define UNUSED_INPUT_2   25
-#define UNUSED_INPUT_3   26
-#define UNUSED_INPUT_4   27
-#define UNUSED_INPUT_5   28
-#define UNUSED_INPUT_6   29
-#define UNUSED_INPUT_7   30 
-#define UNUSED_INPUT_8   31 
-
 // how many sensors are available
 // (not how many are actually used)
-#define SENSOR_TOTAL_INPUTS 32
+#define SENSOR_TOTAL_INPUTS 24
 
 class TankSensors {
     private:

@@ -18,6 +18,8 @@
 #define XBEE_REMOTE_SENSOR_ADDRESS 0x40C59899UL
 #define XBEE_PUMP_SWITCH_ADDRESS   0x40C31683UL
 
+#define XBEE_SLEEP_DELAY_MILLIS 50UL
+
 class WAN {
     private:
         LED _statusLed;

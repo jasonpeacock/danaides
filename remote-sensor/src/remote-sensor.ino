@@ -103,9 +103,9 @@ void setupWAN() {
  * Arduino sleep
  */
 void setupSleep() {
-    //XXX investigate what can be disabled
-
-    // never need this, leave it disabled all the time
+    // never need these, leave disabled all the time
+    Narcoleptic.disableSPI();
+    Narcoleptic.disableWire();
     Narcoleptic.disableADC();
 }
 
@@ -169,21 +169,13 @@ void displaySensorValues() {
 uint32_t lastTransmitTime = 0UL;
 void transmitSensorValues(bool force = false) {
     if (force || now() - lastTransmitTime >= REMOTE_SENSOR_FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
-        Serial.println(F("Sending data..."));
         lastTransmitTime = now();
 
         Data values = Data(wan.getBaseStationAddress(), tankSensors.getSensorValues(), tankSensors.getNumSensors());
 
-        if (wan.transmit(&values)) {
-            Serial.println(F("Sensor values sent!"));
-        } else {
+        if (!wan.transmit(&values)) {
             Serial.println(F("Failed to transmit values"));
         }
-
-        Serial.print(F("Total transmit time (ms): "));
-        Serial.println(now() - lastTransmitTime);
-
-        freeRam();
     }
 }
 
@@ -191,15 +183,10 @@ void transmitSensorValues(bool force = false) {
  * Put the Arduino board into lowest-power sleep
  */
 void sleepArduino() {
-    Serial.println(F("Sleeping!"));
-
     // allow serial buffer to flush before sleeping
     Serial.flush();
 
     Narcoleptic.delay(REMOTE_SENSOR_CHECK_INTERVAL_SECONDS * 1000UL);
-
-    // continue from here after waking
-    Serial.println(F("Awake!"));
 }
 
 void setup() {

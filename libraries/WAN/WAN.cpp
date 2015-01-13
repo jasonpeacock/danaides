@@ -57,7 +57,6 @@ void WAN::enableSleep(uint8_t dtrPin, uint8_t ctsPin) {
     pinMode(_ctsPin, INPUT);
 
     _sleepEnabled = true;
-    Serial.println(F("Sleep is enabled"));
 
     // start sleeping until needed
     _sleep();
@@ -67,21 +66,16 @@ void WAN::disableSleep() {
     // wake the XBee before disabling our ability to do so...
     _wake();
     _sleepEnabled = false;
-    Serial.println(F("Sleep is disabled"));
 }
 
 // XXX investigate using SLEEP_PIN as INPUT instead, less power?
 // http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
 void WAN::_sleep() {
     if (_sleepEnabled) {
-        Serial.println(F("Sleeping XBee"));
-
-        //XXX wait a bit first, was sometimes sending bad
+        // wait a bit first, was sometimes sending bad
         // data (partial packets?) due to sleeping too
-        // quickly. This delay (500ms) appears to have fixed it,
-        // need to test more to see what delay can be decreased
-        // to...
-        delay(500);
+        // quickly.
+        delay(XBEE_SLEEP_DELAY_MILLIS);
 
         digitalWrite(_dtrPin, HIGH);
     }
@@ -89,18 +83,13 @@ void WAN::_sleep() {
 
 void WAN::_wake() {
     if (_sleepEnabled) {
-        Serial.println(F("Waking XBee..."));
         digitalWrite(_dtrPin, LOW);
 
-        // empirically, this usually takes 15-17ms
-        // after waking from sleep
-        uint32_t start = millis();
+        // empirically, this usually takes ~20ms
         while (LOW != digitalRead(_ctsPin)) {
             // delay until CTS_PIN goes low
-            delay(1);
+            delayMicroseconds(100);
         }
-        Serial.print(F("XBee wake latency (ms): "));
-        Serial.println(millis() - start);
     }
 }
 
@@ -121,9 +110,7 @@ bool WAN::receive(Data &data) {
         } else if (ZB_TX_STATUS_RESPONSE == _xbee.getResponse().getApiId()) {
             _xbee.getResponse().getZBTxStatusResponse(_zbTxStatus);
 
-            if (SUCCESS == _zbTxStatus.getDeliveryStatus()) {
-                Serial.println(F("Delivery Success!"));
-            } else {
+            if (SUCCESS != _zbTxStatus.getDeliveryStatus()) {
                 Serial.println(F("Delivery Failure :("));
             }
         } else {

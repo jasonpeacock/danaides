@@ -174,8 +174,7 @@ void LED::thinking() {
 
 // show success/assent
 void LED::success() {
-    // yep, same as thinking for now...
-    flash(5, 100);
+    flash(1, 250);
 }
 
 // show error/refusal

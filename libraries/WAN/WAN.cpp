@@ -114,6 +114,8 @@ bool WAN::receive(Data &data) {
             if (SUCCESS != _zbTxStatus.getDeliveryStatus()) {
                 Serial.println(F("Delivery Failure :("));
                 _led.error();
+            } else {
+                _led.success();
             }
         } else {
             Serial.print(F("UNEXPECTED RESPONSE: "));

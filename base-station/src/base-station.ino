@@ -237,13 +237,15 @@ void evaluateTankSensors() {
     if (millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
         lastTankSensorCheckTime = millis();
 
-        if (!tankSensors.ready()) {
-            Serial.println(F("TankSensors not updated yet, skipping evaluation"));
+        if (!tankSensors.ready() || isRemoteSensorReceiveLate()) {
+            Serial.println(F("TankSensors not updated yet or are late, skipping evaluation"));
+            // don't try to manage the pump, may conflict with user button press of pump
             return;
         }
 
-        if (!pumpSwitch.ready()) {
-            Serial.println(F("PumpSwitch not updated yet, skipping evaluation"));
+        if (!pumpSwitch.ready() || isPumpSwitchReceiveLate()) {
+            Serial.println(F("PumpSwitch not updated yet or is late, skipping evaluation"));
+            // don't try to manage the pump, may conflict with user button press of pump
             return;
         }
 

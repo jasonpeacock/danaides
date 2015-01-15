@@ -37,6 +37,9 @@ class PumpSwitch {
 
         bool _master;
 
+        bool _valuesInitialized;
+        bool _settingsInitialized;
+
         Bounce _debouncer;
         uint8_t _buttonPin;
 
@@ -99,6 +102,8 @@ class PumpSwitch {
 
         bool start(bool force = false);
         bool  stop(bool force = false);
+
+        bool ready();
 };
 
 #endif //PumpSwitch_h

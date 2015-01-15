@@ -22,7 +22,7 @@
 
 class WAN {
     private:
-        LED _statusLed;
+        LED _led;
 
         XBee _xbee;
         ZBRxResponse _zbRx;

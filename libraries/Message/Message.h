@@ -15,7 +15,7 @@
 #define MESSAGE_TOTAL_CHAR_SIZE 8
 
 //XXX make this smaller?
-#define MESSAGE_MAX_SIZE 100
+#define MESSAGE_MAX_SIZE 50
 
 #define MESSAGE_SCROLL_DELAY_MILLIS 200UL
 

@@ -19,7 +19,7 @@ void WAN::_init(Stream &serial) {
 WAN::WAN(Stream &serial) : _xbee(XBee()), 
                            _zbRx(ZBRxResponse()), 
                            _zbTxStatus(ZBTxStatusResponse()),
-                           _statusLed(LED(0)),
+                           _led(LED(0)),
                            _dtrPin(0),
                            _ctsPin(0),
                            _sleepEnabled(false) {
@@ -29,7 +29,7 @@ WAN::WAN(Stream &serial) : _xbee(XBee()),
 WAN::WAN(Stream &serial, LED statusLed) : _xbee(XBee()), 
                                           _zbRx(ZBRxResponse()), 
                                           _zbTxStatus(ZBTxStatusResponse()),
-                                          _statusLed(statusLed),
+                                          _led(statusLed),
                                           _dtrPin(0),
                                           _ctsPin(0),
                                           _sleepEnabled(false) {
@@ -40,11 +40,11 @@ WAN::~WAN() {
 }
 
 void WAN::setup() {
-    _statusLed.setup();
+    _led.setup();
 }
 
 void WAN::check() {
-    _statusLed.check();
+    _led.check();
 }
 
 void WAN::enableSleep(uint8_t dtrPin, uint8_t ctsPin) {
@@ -106,20 +106,24 @@ bool WAN::receive(Data &data) {
             data.set(_zbRx.getRemoteAddress64().getLsb(), _zbRx.getData(), _zbRx.getDataLength());
 
             received = true;
+            _led.success();
 
         } else if (ZB_TX_STATUS_RESPONSE == _xbee.getResponse().getApiId()) {
             _xbee.getResponse().getZBTxStatusResponse(_zbTxStatus);
 
             if (SUCCESS != _zbTxStatus.getDeliveryStatus()) {
                 Serial.println(F("Delivery Failure :("));
+                _led.error();
             }
         } else {
             Serial.print(F("UNEXPECTED RESPONSE: "));
             Serial.println(_xbee.getResponse().getApiId());
+            _led.error();
         }
     } else if (_xbee.getResponse().isError()) {
         Serial.print(F("Error reading packet. Error code: "));
         Serial.println(_xbee.getResponse().getErrorCode());
+        _led.error();
     }
 
     _sleep();

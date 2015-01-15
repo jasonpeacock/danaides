@@ -1,10 +1,8 @@
 # Remaining Work
 
 ## Must Do
+* if sensors are late, disable logic/reset local pumpswitch/clear display?
 * set correct times/intervals for everything, consolidate into Danaides.h
-* add valve status LEDs to base-station
-* add late-receive checking/status LED to base-station for both pump-switch and remote-sensor
-* convert remote-sensor to 3V trinket, remove ON led
 * build remote-sensor battery holder
 * build remote-sensor float & valve sensors
 

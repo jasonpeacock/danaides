@@ -28,6 +28,10 @@
 
 #define EVALUATE_TANK_SENSOR_INTERVAL_MINUTES 1UL
 
+//XXX adjust these to actual values 
+#define PUMP_SWITCH_RECEIVE_ALARM_DELAY_MINUTES 1UL
+#define REMOTE_SENSOR_RECEIVE_ALARM_DELAY_MINUTES 2UL
+
 void freeRam();
 
 #endif //Danaides_h

@@ -75,6 +75,8 @@ PumpSwitch::PumpSwitch(bool master,
                        uint8_t ledPin, 
                        void (*startCallback)(), 
                        void (*stopCallback)()) :
+    _valuesInitialized(false),
+    _settingsInitialized(false),
     _master(master),
     _debouncer(Bounce()),
     _buttonPin(buttonPin),
@@ -90,6 +92,12 @@ PumpSwitch::PumpSwitch(bool master,
 
     // start with default settings
     _resetSettings();
+
+    // initialize ourself if master
+    if (isMaster()) {
+        _valuesInitialized = true;
+        _settingsInitialized = true;
+    }
 }
 
 PumpSwitch::~PumpSwitch() {
@@ -101,6 +109,10 @@ void PumpSwitch::setup() {
     _debouncer.interval(5); // ms
 
     _led.setup();
+}
+
+bool PumpSwitch::ready() {
+    return _valuesInitialized && _settingsInitialized;
 }
 
 bool PumpSwitch::isMaster() {
@@ -130,7 +142,7 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
         return;
     }
 
-    if (_values[PUMP_VALUES_STATE] != values[PUMP_VALUES_STATE]) {
+    if (ready() && _values[PUMP_VALUES_STATE] != values[PUMP_VALUES_STATE]) {
         Serial.println(F("New values have a different pump state, updating Pump Switch"));
         // the updated values reflect a different pump state,
         // update (force) our PumpSwitch to match
@@ -141,6 +153,8 @@ void PumpSwitch::updateValues(uint8_t *values, uint8_t numValues) {
         for (uint8_t i = 0; i < numValues; i++) {
             _values[i] = values[i];
         }
+
+        _valuesInitialized = true;
     } else {
         Serial.println(F("Is Master, not updating values"));
     }
@@ -164,6 +178,8 @@ void PumpSwitch::updateSettings(uint8_t *settings, uint8_t numSettings) {
         for (uint8_t i = 0; i < numSettings; i++) {
             _settings[i] = settings[i];
         }
+
+        _settingsInitialized = true;
     } else {
         Serial.println(F("Is Master, not updating settings"));
     }

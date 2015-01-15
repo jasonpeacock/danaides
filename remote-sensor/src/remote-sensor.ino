@@ -57,7 +57,6 @@
  * w/internal PULLUP enabled to prevent power drain.
  */
 void setupUnusedPins() {
-    pinMode(UNUSED_PIN_9,  INPUT_PULLUP);
     pinMode(UNUSED_PIN_10, INPUT_PULLUP);
     pinMode(UNUSED_PIN_11, INPUT_PULLUP);
     pinMode(UNUSED_PIN_12, INPUT_PULLUP);
@@ -95,6 +94,9 @@ void setupWAN() {
     ss.begin(9600);
 
     wan.setup();
+
+    // by default, LED should be disabled
+    wan.disableLed();
 
     wan.enableSleep(SLEEP_PIN, CTS_PIN);
 }
@@ -167,14 +169,30 @@ void displaySensorValues() {
  * since the last sensorValues change, and transmit the sensorValues to the base station.
  */
 uint32_t lastTransmitTime = 0UL;
-void transmitSensorValues(bool force = false) {
+bool transmitSensorValues(bool force = false, bool confirm = false) {
     if (force || now() - lastTransmitTime >= REMOTE_SENSOR_FORCE_TRANSMIT_INTERVAL_SECONDS * 1000UL) {
         lastTransmitTime = now();
+
+        if (confirm) {
+            // enable the LED so we can see the status
+            wan.enableLed();
+        }
 
         Data values = Data(wan.getBaseStationAddress(), tankSensors.getSensorValues(), tankSensors.getNumSensors());
 
         if (!wan.transmit(&values)) {
             Serial.println(F("Failed to transmit values"));
+        }
+
+        if (confirm) {
+            // data is ignored
+            Data data = Data();
+
+            // WAN will blink LED appropriately for success/failure
+            wan.receive(data, REMOTE_SENSOR_RECEIVE_DELAY );
+
+            // and then disable it again
+            wan.disableLed();
         }
     }
 }
@@ -214,7 +232,9 @@ void loop() {
 
     if (interruptedByPin) {
         interruptedByPin = false;
-        displaySensorValues();
+        transmitSensorValues(true, true);
+        // disabled for production
+        // displaySensorValues();
     }
 
     transmitSensorValues();

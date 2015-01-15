@@ -4,12 +4,12 @@
 * set correct times/intervals for everything, consolidate into Danaides.h
 * build remote-sensor battery holder
 * build remote-sensor float & valve sensors
-* add transmission forcing/status button/LED to remote-sensor (pin 13)
+* remove pin13 LED from remote-sensor board
 * change alpha display to show fixed words instead of scrolling
+* add transmission checking/status LED to pump-switch (pin 13)
 
 ## Should Do
 * balance brightness of LEDs & Alpha/Numeric displays
-* add transmission checking/status LED to pump-switch (pin 13)
 
 ## Nice To Have
 * enable alarm beeping? w/switch to disable...

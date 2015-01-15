@@ -15,6 +15,7 @@ class LED {
     private:
         uint8_t _pin;
 
+        bool _enabled;
         bool _currLedState; // actual LED state
         bool _on;           // desired LED state
 
@@ -39,6 +40,8 @@ class LED {
         void check();
 
         bool enabled();
+        void setEnabled(bool enabled);
+
         void on();
         void off();
 

@@ -12,6 +12,8 @@
 // how often to transmit values, regardless of previous sensor values
 #define REMOTE_SENSOR_FORCE_TRANSMIT_INTERVAL_SECONDS 30UL
 
+#define REMOTE_SENSOR_RECEIVE_DELAY 100
+
 //XXX update to correct values! (???)
 // how often to transmit values
 #define PUMP_SWITCH_TRANSMIT_INTERVAL_SECONDS 10UL

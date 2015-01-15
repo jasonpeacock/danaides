@@ -5,6 +5,7 @@
 
 LED::LED() :
     _pin(0),
+    _enabled(true),
     _on(false),
     _currLedState(false),
     _maxFlashCount(0),
@@ -17,6 +18,7 @@ LED::LED() :
 
 LED::LED(uint8_t pin) :
     _pin(pin),
+    _enabled(true),
     _on(false),
     _currLedState(false),
     _maxFlashCount(0),
@@ -106,7 +108,16 @@ void LED::check() {
 }
 
 bool LED::enabled() {
-    return _pin;
+    return _enabled && _pin;
+}
+
+void LED::setEnabled(bool enabled) {
+    if (!enabled) {
+        // turn off the LED before disabling it
+        off();
+    }
+
+    _enabled = enabled;
 }
 
 // idempotent, don't check current state

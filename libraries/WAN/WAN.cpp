@@ -26,7 +26,7 @@ WAN::WAN(Stream &serial) : _xbee(XBee()),
     _init(serial);
 }
 
-WAN::WAN(Stream &serial, LED statusLed) : _xbee(XBee()), 
+WAN::WAN(Stream &serial, LED &statusLed) : _xbee(XBee()), 
                                           _zbRx(ZBRxResponse()), 
                                           _zbTxStatus(ZBTxStatusResponse()),
                                           _led(statusLed),
@@ -68,6 +68,14 @@ void WAN::disableSleep() {
     _sleepEnabled = false;
 }
 
+void WAN::enableLed() {
+    _led.setEnabled(true);
+}
+
+void WAN::disableLed() {
+    _led.setEnabled(false);
+}
+
 // XXX investigate using SLEEP_PIN as INPUT instead, less power?
 // http://www.fiz-ix.com/2012/11/low-power-xbee-sleep-mode-with-arduino-and-pin-hibernation/
 void WAN::_sleep() {
@@ -94,9 +102,17 @@ void WAN::_wake() {
 }
 
 bool WAN::receive(Data &data) {
+    receive(data, 0);
+}
+
+bool WAN::receive(Data &data, uint32_t timeout) {
     _wake();
 
-    _xbee.readPacket();
+    if (timeout) {
+        _xbee.readPacket(timeout);
+    } else {
+        _xbee.readPacket();
+    }
 
     bool received = false;
     if (_xbee.getResponse().isAvailable()) {
@@ -113,6 +129,7 @@ bool WAN::receive(Data &data) {
 
             if (SUCCESS != _zbTxStatus.getDeliveryStatus()) {
                 Serial.println(F("Delivery Failure :("));
+
                 _led.error();
             } else {
                 _led.success();
@@ -129,6 +146,14 @@ bool WAN::receive(Data &data) {
     }
 
     _sleep();
+
+    // wait for flashing if LED is enabled
+    if (_led.enabled()) {
+        while(!_led.completedFlashing()) {
+            _led.check();
+            delayMicroseconds(1000);
+        }
+    }
 
     return received;
 }

@@ -46,7 +46,7 @@ class WAN {
 
     public:
         WAN(Stream &serial);
-        WAN(Stream &serial, LED statusLed);
+        WAN(Stream &serial, LED &statusLed);
         ~WAN();
 
         void setup();
@@ -56,7 +56,11 @@ class WAN {
         void enableSleep(uint8_t dtrPin, uint8_t ctsPin);
         void disableSleep();
 
+        void enableLed();
+        void disableLed();
+
         bool receive(Data &data);
+        bool receive(Data &data, uint32_t timeout);
         bool transmit(Data *data);
 
         uint32_t getBaseStationAddress();

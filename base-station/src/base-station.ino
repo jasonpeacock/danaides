@@ -49,44 +49,6 @@
 #define I2C_CLOCK_PIN 19           // I2C Clock (Analog 5)
 
 /*
- * Evaluate Switch
- */
-Bounce evaluateSwitch = Bounce();
-bool evaluateEnabled = true;
-LED evaluateLed = LED(EVALUATE_LED);
-void setupEvaluate() {
-    evaluateLed.setup();
-
-    pinMode(EVALUATE_PIN, INPUT_PULLUP);
-    evaluateSwitch.attach(EVALUATE_PIN);
-    evaluateSwitch.interval(5); // ms
-
-    evaluateSwitch.update();
-    evaluateEnabled = evaluateSwitch.read();
-}
-
-void evaluateSwitchCheck() {
-    if (evaluateSwitch.update()) {
-        // switch was switched
-        evaluateEnabled = evaluateSwitch.read();
-
-        Serial.print(F("Evaluate switch updated: "));
-        Serial.println(evaluateEnabled);
-    }
-
-    if (evaluateEnabled && (isPumpSwitchReceiveLate() || isRemoteSensorReceiveLate())) {
-        evaluateLed.flashing(true);
-    } else if(evaluateEnabled) {
-        evaluateLed.flashing(false);
-        evaluateLed.on();
-    } else {
-        evaluateLed.off();
-    }
-
-    evaluateLed.check();
-}
-
-/*
  * XBee
  */ 
 
@@ -137,6 +99,44 @@ bool isRemoteSensorReceiveLate() {
     }
 
     return late;
+}
+
+// Evaluate Switch
+Bounce evaluateSwitch = Bounce();
+bool evaluateEnabled = true;
+LED evaluateLed = LED(EVALUATE_LED);
+void setupEvaluate() {
+    evaluateLed.setup();
+
+    pinMode(EVALUATE_PIN, INPUT_PULLUP);
+    evaluateSwitch.attach(EVALUATE_PIN);
+    evaluateSwitch.interval(5); // ms
+
+    evaluateSwitch.update();
+    evaluateEnabled = evaluateSwitch.read();
+}
+
+void evaluateSwitchCheck() {
+    if (evaluateSwitch.update()) {
+        // switch was switched
+        evaluateEnabled = evaluateSwitch.read();
+
+        Serial.print(F("Evaluate switch updated: "));
+        Serial.println(evaluateEnabled);
+    }
+
+    if (evaluateEnabled && 
+            (!tankSensors.ready() || isRemoteSensorReceiveLate() ||
+             !pumpSwitch.ready() || isPumpSwitchReceiveLate())) {
+        evaluateLed.flashing(true);
+    } else if (evaluateEnabled) {
+        evaluateLed.flashing(false);
+        evaluateLed.on();
+    } else {
+        evaluateLed.off();
+    }
+
+    evaluateLed.check();
 }
 
 Message message = Message(0x70, 0x71);
@@ -241,7 +241,7 @@ void transmit() {
 
 uint32_t lastTankSensorCheckTime = 0UL;
 void evaluateTankSensors() {
-    if (millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
+    if (!lastTankSensorCheckTime || millis() - lastTankSensorCheckTime > EVALUATE_TANK_SENSOR_INTERVAL_MINUTES * 60UL * 1000UL) {
         lastTankSensorCheckTime = millis();
 
         if (!tankSensors.ready() || isRemoteSensorReceiveLate()) {

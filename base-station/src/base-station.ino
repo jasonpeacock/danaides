@@ -42,26 +42,21 @@
 #define VALVE_4_LED   12           // Valve 4 Status LED (red)
 #define STATUS_LED    13           // XBee Status LED
 #define VALVE_5_LED   14           // Valve 5 Status LED (red) (Analog 0)
-#define UNUSED_PIN_15 15           // unused    (Analog 1)
+#define EVALUATE_LED  15           // Evaluate Enabled LED (blue) (Analog 1)
 #define SS_TX_PIN     16           // XBee RX   (Analog 2)
 #define SS_RX_PIN     17           // XBee TX   (Analog 3)
 #define I2C_DATA_PIN  18           // I2C Data  (Analog 4)
 #define I2C_CLOCK_PIN 19           // I2C Clock (Analog 5)
 
 /*
- * Unused pins can drain power, set them to INPUT
- * w/internal PULLUP enabled to prevent power drain.
- */
-void setupUnusedPins() {
-    pinMode(UNUSED_PIN_15, INPUT_PULLUP);
-}
-
-/*
  * Evaluate Switch
  */
 Bounce evaluateSwitch = Bounce();
 bool evaluateEnabled = true;
+LED evaluateLed = LED(EVALUATE_LED);
 void setupEvaluate() {
+    evaluateLed.setup();
+
     pinMode(EVALUATE_PIN, INPUT_PULLUP);
     evaluateSwitch.attach(EVALUATE_PIN);
     evaluateSwitch.interval(5); // ms
@@ -74,9 +69,21 @@ void evaluateSwitchCheck() {
     if (evaluateSwitch.update()) {
         // switch was switched
         evaluateEnabled = evaluateSwitch.read();
+
         Serial.print(F("Evaluate switch updated: "));
         Serial.println(evaluateEnabled);
     }
+
+    if (evaluateEnabled && (isPumpSwitchReceiveLate() || isRemoteSensorReceiveLate())) {
+        evaluateLed.flashing(true);
+    } else if(evaluateEnabled) {
+        evaluateLed.flashing(false);
+        evaluateLed.on();
+    } else {
+        evaluateLed.off();
+    }
+
+    evaluateLed.check();
 }
 
 /*
@@ -281,8 +288,6 @@ void setup() {
     Serial.begin(9600);
 
     Serial.println(F("setup() start.."));
-
-    setupUnusedPins();
 
     pumpSwitch.setup();
 

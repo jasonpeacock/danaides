@@ -6,7 +6,7 @@
 * build remote-sensor float & valve sensors
 * remove pin13 LED from remote-sensor board
 * change alpha display to show fixed words instead of scrolling
-* add transmission checking/status LED to pump-switch (pin 13)
+  * PUMP ON (timer), TANK FULL (no timer), PUMP OFF (timer)
 
 ## Should Do
 * balance brightness of LEDs & Alpha/Numeric displays

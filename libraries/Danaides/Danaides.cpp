@@ -1,6 +1,10 @@
 #include "Danaides.h"
 
-void freeRam () {
+void freeRam (bool enable) {
+	if (!enable) {
+		return;
+	}
+	
     extern int __heap_start, *__brkval;
     int v;
     Serial.print(F("Free RAM (B): "));

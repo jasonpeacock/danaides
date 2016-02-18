@@ -32,7 +32,7 @@
 
 #define BUTTON_PIN     3           // Momentary switch
 #define BUTTON_LED     4           // Momentary switch LED (blue)
-#define EVALUATE_PIN   5           // Switch to allow BaseStation to manager PumpSwitch
+#define EVALUATE_PIN   5           // Switch to allow BaseStation to manage PumpSwitch
 #define LATE_PUMP_LED  6           // Late PumpSwitch LED (green)
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define LATE_TANK_LED  8           // Late TankSensors LED (green)
@@ -47,6 +47,8 @@
 #define SS_RX_PIN     17           // XBee TX   (Analog 3)
 #define I2C_DATA_PIN  18           // I2C Data  (Analog 4)
 #define I2C_CLOCK_PIN 19           // I2C Clock (Analog 5)
+
+#define FREE_RAM_ENABLE false      // output free RAM debug to serial console
 
 /*
  * XBee
@@ -133,17 +135,18 @@ void evaluateSwitchCheck() {
         evaluateLed.flashing(false);
         evaluateLed.on();
     } else {
+        evaluateLed.flashing(false);
         evaluateLed.off();
     }
 
     evaluateLed.check();
 }
 
-Message message = Message(0x70, 0x71);
+Message message = Message(0x71, 0x70);
 Counter counter = Counter(0x72);
-Bargraph bar_1 = Bargraph(0x73, tankSensors.getNumFloatsPerTank());
-Bargraph bar_2 = Bargraph(0x74, tankSensors.getNumFloatsPerTank());
-Bargraph bar_3 = Bargraph(0x75, tankSensors.getNumFloatsPerTank());
+Bargraph bar_1 = Bargraph(0x74, tankSensors.getNumFloatsPerTank());
+Bargraph bar_2 = Bargraph(0x75, tankSensors.getNumFloatsPerTank());
+Bargraph bar_3 = Bargraph(0x73, tankSensors.getNumFloatsPerTank());
 LED latePumpSwitchLed  = LED(LATE_PUMP_LED);
 LED lateTankSensorsLed = LED(LATE_TANK_LED);
 LED valveLed_1 = LED(VALVE_1_LED);
@@ -217,7 +220,7 @@ void receive() {
             Serial.println(data.getData()[i]);
         }
 
-        freeRam();
+        freeRam(FREE_RAM_ENABLE);
     }
 }
 
@@ -232,7 +235,7 @@ void transmit() {
         Serial.println(F("Failed to transmit Pump Switch data"));
     }
 
-    freeRam();
+    freeRam(FREE_RAM_ENABLE);
 
     Serial.print(F("Total transmit time (ms): "));
     Serial.println(millis() - start);
@@ -302,7 +305,7 @@ void setup() {
     // say something
     display.scroll("HELLO");
 
-    freeRam();
+    freeRam(FREE_RAM_ENABLE);
 }
 
 void loop() {

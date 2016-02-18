@@ -50,12 +50,13 @@ void Bargraph::check() {
     }
 } 
 
+// block "0" should be at the top of the bar (highest values)
 void Bargraph::setBlock(bool state, bool fill, uint8_t block) {
     uint8_t blockSize = (uint8_t)(BARGRAPH_TOTAL_BARS / _totalBlocks);
-    uint8_t startBlock = 0 + block * blockSize;
-    uint8_t endBlock = startBlock + blockSize;
+    uint8_t startBlock = BARGRAPH_TOTAL_BARS - blockSize - block * blockSize;
+    uint8_t endBlock = startBlock + blockSize - 1;
 
-    // fill in the bar section (or not)
+    // fill in the bar
     for (uint8_t i = startBlock; i < endBlock; i++) {
         if (fill && state) {
             // make the fill green if it's ON
@@ -72,9 +73,9 @@ void Bargraph::setBlock(bool state, bool fill, uint8_t block) {
 
     // color the marker (end of block)
     if (state) {
-        _bar.setBar(startBlock, LED_YELLOW);
+        _bar.setBar(endBlock, LED_YELLOW);
     } else {
-        _bar.setBar(startBlock, LED_RED);
+        _bar.setBar(endBlock, LED_RED);
     }
 }
 

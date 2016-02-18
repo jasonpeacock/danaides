@@ -37,17 +37,19 @@
 #define UNUSED_PIN_6   6           // unused
 #define NO_PIN_7       7           // no pin 7 on Trinket Pro boards
 #define UNUSED_PIN_8   8           // unused
-#define SHORT_ONTIME_LED   9       // Short OnTime Green LED  (always on)
-#define LONG_ONTIME_LED    10      // Long OnTime Green LED
-#define ONTIME_SWITCH_PIN  11      // OnTime Switch
-#define SHORT_OFFTIME_LED  12      // Short OffTime Red LED (always on)
+#define LONG_OFFTIME_LED    9      // Long OffTime Red LED
+#define SHORT_OFFTIME_LED  10      // Short OffTime Red LED (always on)
+#define SHORT_ONTIME_LED   11      // Short OnTime Green LED  (always on)
+#define LONG_ONTIME_LED    12      // Long OnTime Green LED
 #define STATUS_LED    13           // XBee Status LED
-#define LONG_OFFTIME_LED   14      // Long OffTime Red LED (Analog 0)
-#define OFFTIME_SWITCH_PIN 15      // OffTime Switch   (Analog 1)
-#define SS_TX_PIN     16           // XBee RX   (Analog 2)
-#define SS_RX_PIN     17           // XBee TX   (Analog 3)
+#define ONTIME_SWITCH_PIN  14      // OnTime Switch   (Analog 0)
+#define OFFTIME_SWITCH_PIN 15      // OffTime Switch  (Analog 1)
+#define SS_RX_PIN     16           // XBee TX   (Analog 2)
+#define SS_TX_PIN     17           // XBee RX   (Analog 3)
 #define I2C_DATA_PIN  18           // I2C Data  (Analog 4)
 #define I2C_CLOCK_PIN 19           // I2C Clock (Analog 5)
+
+#define FREE_RAM_ENABLE false      // output free RAM debug to serial console
 
 /*
  * Unused pins can drain power, set them to INPUT
@@ -159,7 +161,7 @@ void receive() {
         Serial.println(F("Received data..."));
         Serial.flush();
 
-        freeRam();
+        freeRam(FREE_RAM_ENABLE);
 
         if (wan.isBaseStationAddress(data.getAddress())) {
             Serial.println(F("New data from Base Station"));
@@ -183,7 +185,7 @@ void receive() {
             Serial.println(data.getData()[i]);
         }
 
-        freeRam();
+        freeRam(FREE_RAM_ENABLE);
 
         Serial.print(F("Total receive time (ms): "));
         Serial.println(millis() - lastReceiveTime);
@@ -203,7 +205,7 @@ void transmit(bool forceValues = false) {
         Serial.println(F("transmitting..."));
         Serial.flush();
 
-        freeRam();
+        freeRam(FREE_RAM_ENABLE);
 
         // alternate between sending the values & sending the settings,
         // don't send them back-to-back b/c base-station may not process
@@ -228,7 +230,7 @@ void transmit(bool forceValues = false) {
             }
         }
 
-        freeRam();
+        freeRam(FREE_RAM_ENABLE);
 
         Serial.print(F("Total transmit time (ms): "));
         Serial.println(millis() - lastTransmitTime);

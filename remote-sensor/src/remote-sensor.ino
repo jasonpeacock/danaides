@@ -189,7 +189,7 @@ bool transmitSensorValues(bool force = false, bool confirm = false) {
             Data data = Data();
 
             // WAN will blink LED appropriately for success/failure
-            wan.receive(data, REMOTE_SENSOR_RECEIVE_DELAY );
+            wan.receive(data, REMOTE_SENSOR_RECEIVE_TIMEOUT_MS );
 
             // and then disable it again
             wan.disableLed();
@@ -233,8 +233,8 @@ void loop() {
     if (interruptedByPin) {
         interruptedByPin = false;
         transmitSensorValues(true, true);
-        // disabled for production
-        // displaySensorValues();
+        //XXX disable for production
+        displaySensorValues();
     }
 
     transmitSensorValues();

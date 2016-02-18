@@ -20,7 +20,7 @@
 // regardless of their own state.
 void Display::_updateBars(TankSensors &tankSensors) {
     if (tankSensors.ready()) {
-        //XXX assumes that tankSensors.getNumTanks == DISPLAY_TOTAL_BARGRAPHS
+        // assumes that tankSensors.getNumTanks == DISPLAY_TOTAL_BARGRAPHS
         for (uint8_t t = 0; t < tankSensors.getNumTanks(); t++) {
             bool fill = false;
             for (uint8_t f = 0; f < tankSensors.getNumFloatsPerTank(); f++) {

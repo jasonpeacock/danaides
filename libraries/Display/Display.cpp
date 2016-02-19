@@ -109,7 +109,7 @@ void Display::_scrollStatus(PumpSwitch &pumpSwitch) {
         }
 
         char status[34];
-        snprintf(status, 34, "PUMP STATUS %s %s %s", state, duration_1, duration_2);
+        snprintf(status, 34, "PUMP %s %s %s", state, duration_1, duration_2);
         scroll(status);
     }
 

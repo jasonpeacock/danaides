@@ -83,9 +83,7 @@ PumpSwitch::PumpSwitch(bool master,
     _led(LED(ledPin)),
     _startCallback(startCallback),
     _stopCallback(stopCallback),
-    _time(millis()),
-    _startAttemptTime(0UL),
-    _startAttemptCount(0) {
+    _time(millis()) {
 
     // start with the pump off
     _off();
@@ -256,7 +254,7 @@ void PumpSwitch::check() {
 
     if (_debouncer.update() && _debouncer.fell()) {
         // button was pressed
-        isOn() ? stop(true) : start();
+        isOn() ? stop(true) : start(true);
     }
 
     if (isOn()) {
@@ -293,14 +291,7 @@ bool PumpSwitch::start(bool force) {
 
     // don't start the pump if it hasn't rested long enough
     if (getMinOffMinutes() > getElapsedMinutes()) {
-        if (!_startAttemptTime || millis() - _startAttemptTime < PUMP_START_ATTEMPTS_WINDOW_SECONDS * 1000LU) {
-            _startAttemptCount++;
-        } else {
-            _startAttemptTime = millis();
-            _startAttemptCount = 1;
-        }
-
-        if (!force && PUMP_MIN_START_ATTEMPTS > _startAttemptCount) {
+        if (!force) {
             Serial.print(F("Pump only off "));
             Serial.print(getElapsedMinutes());
             Serial.print(F("min (MINIMUM: "));
@@ -313,10 +304,6 @@ bool PumpSwitch::start(bool force) {
             Serial.println(F("Pump override enabled!"));
         }
     }
-
-    // pump is starting, reset the attempt counter/time
-    _startAttemptTime = 0;
-    _startAttemptCount = 0;
 
     _led.thinking();
 

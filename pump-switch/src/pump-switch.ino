@@ -4,7 +4,7 @@
  *
  * Also, manage maximum run time and duty cycle
  * for the pump in case the Base Station fails
- * to stop the pump, or attempts to restart it
+ * to stop the pump, or  s to restart it
  * too often.
  * 
  */

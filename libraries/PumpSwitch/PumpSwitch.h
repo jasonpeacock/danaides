@@ -53,9 +53,6 @@ class PumpSwitch {
 
         uint32_t _time;
 
-        uint32_t _startAttemptTime;
-        uint8_t _startAttemptCount;
-
         uint32_t _msToMinutes(uint32_t ms);
         void _resetValues(bool running);
         void _resetSettings();

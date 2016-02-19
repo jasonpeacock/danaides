@@ -93,10 +93,20 @@ void setupWAN() {
     pinMode(SS_TX_PIN, OUTPUT);
     ss.begin(9600);
 
+    // force the XBee not *NOT* sleep during WAN
+    // setup so it has time to join the network.
+    pinMode(SLEEP_PIN, OUTPUT);
+    digitalWrite(SLEEP_PIN, LOW);
+    
     wan.setup();
 
     // by default, LED should be disabled
     wan.disableLed();
+
+    // wait before sleeping to allow XBee enough time to 
+    // join the network, otherwise it can take many wake/sleep
+    // cycles to finally join (or never join!).
+    delay(30000); // 30 seconds
 
     wan.enableSleep(SLEEP_PIN, CTS_PIN);
 }
@@ -189,7 +199,7 @@ bool transmitSensorValues(bool force = false, bool confirm = false) {
             Data data = Data();
 
             // WAN will blink LED appropriately for success/failure
-            wan.receive(data, REMOTE_SENSOR_RECEIVE_TIMEOUT_MS );
+            wan.receive(data, REMOTE_SENSOR_RECEIVE_TIMEOUT_MS);
 
             // and then disable it again
             wan.disableLed();
@@ -233,8 +243,8 @@ void loop() {
     if (interruptedByPin) {
         interruptedByPin = false;
         transmitSensorValues(true, true);
-        //XXX disable for production
-        displaySensorValues();
+        // disabled for production
+        // displaySensorValues();
     }
 
     transmitSensorValues();

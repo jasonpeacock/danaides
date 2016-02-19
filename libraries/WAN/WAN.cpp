@@ -1,4 +1,4 @@
-// system
+ // system
 #include <Arduino.h>
 
 // local
@@ -96,7 +96,7 @@ void WAN::_wake() {
         // empirically, this usually takes ~20ms
         while (LOW != digitalRead(_ctsPin)) {
             // delay until CTS_PIN goes low
-            delayMicroseconds(100);
+            delay(XBEE_WAKE_DELAY_MILLIS);
         }
     }
 }
@@ -151,7 +151,7 @@ bool WAN::receive(Data &data, uint32_t timeout) {
     if (_led.enabled()) {
         while(!_led.completedFlashing()) {
             _led.check();
-            delayMicroseconds(1000);
+            delay(100);
         }
     }
 

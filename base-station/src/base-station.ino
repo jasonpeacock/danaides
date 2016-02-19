@@ -149,11 +149,14 @@ Bargraph bar_2 = Bargraph(0x75, tankSensors.getNumFloatsPerTank());
 Bargraph bar_3 = Bargraph(0x73, tankSensors.getNumFloatsPerTank());
 LED latePumpSwitchLed  = LED(LATE_PUMP_LED);
 LED lateTankSensorsLed = LED(LATE_TANK_LED);
-LED valveLed_1 = LED(VALVE_1_LED);
-LED valveLed_2 = LED(VALVE_2_LED);
-LED valveLed_3 = LED(VALVE_3_LED);
-LED valveLed_4 = LED(VALVE_4_LED);
-LED valveLed_5 = LED(VALVE_5_LED);
+
+// Valve sensors are not connected, disable their
+// LEDs...
+LED valveLed_1 = LED(0); // LED(VALVE_1_LED);
+LED valveLed_2 = LED(0); // LED(VALVE_2_LED);
+LED valveLed_3 = LED(0); // LED(VALVE_3_LED);
+LED valveLed_4 = LED(0); // LED(VALVE_4_LED);
+LED valveLed_5 = LED(0); // LED(VALVE_5_LED);
 
 Display display = Display(message, 
                           counter, 
@@ -172,15 +175,14 @@ void enablePump() {
     Serial.println(F("Pump enabled!"));
     // send the current (updated) pump values
     transmit();
-    display.scroll("PUMP ENABLED");
-
+    display.scroll("PUMP STARTED");
 }
 
 void disablePump() {
     Serial.println(F("Pump disabled!"));
     // send the current (updated) pump values
     transmit();
-    display.scroll("PUMP DISABLED");
+    display.scroll("PUMP STOPPED");
 }
 
 void receive() {
